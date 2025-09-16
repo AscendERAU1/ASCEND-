@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Tic.h>
-//unadded
+//unadded but not
 // Define Tic controllers with their addresses
 TicI2C tic1(14);  // Address for the first Tic (motor X)
 TicI2C tic2(15);  // Address for the second Tic (motor Y)
