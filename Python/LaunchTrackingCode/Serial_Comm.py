@@ -3,7 +3,7 @@ import time
 
 
 class SerialComm:
-    def __init__(self, port='/dev/ttyACM0', baud_rate=115200, timeout=1):
+    def __init__(self, port='COM3', baud_rate=115200, timeout=1):
         """Initialize the serial connection."""
         self.ser = serial.Serial(port, baud_rate, timeout=timeout)
         time.sleep(2)  # Wait for the serial connection to initialize
