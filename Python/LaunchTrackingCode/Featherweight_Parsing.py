@@ -3,6 +3,7 @@ import csv
 import os
 import datetime
 
+# ASCEND Computer COM2 Featherweight Connection
 class featherweight_parsing:
 
     def __init__(self):

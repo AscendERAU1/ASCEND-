@@ -4,6 +4,7 @@ import os
 import datetime
 import logging
 
+# ASCEND Computer COM2 Featherweight Connection
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class MessageReader:
