@@ -113,6 +113,12 @@ def switch_to_automatic_tracking():
             payload_alt, xcoord, ycoord, vx, vy = parsing.extract_gps_coords(message)  # Get GPS and velocities
             if payload_alt is not None:
                 coordinate2 = (xcoord, ycoord)  # Assign GPS coordinate for payload
+                if coordinate2[0] < -123.8571589028068 | | coordinate2[0] < -70.51451627738275:  # Lat (e-w)
+                    break
+                elif coordinate2[1] > 49.53851441184275 | | coordinate2[1] < 25.272085123304667:  # long (N-S)
+                    break
+                else
+
                 AR.update(coordinate1, coordinate2, gs_alt, payload_alt)  # Update azimuth and range
 
                 # Get values from azimuth and range code
