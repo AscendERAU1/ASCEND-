@@ -4,10 +4,11 @@ import os
 import datetime
 import logging
 
+# ASCEND Computer COM2 Featherweight Connection
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class MessageReader:
-    def __init__(self, serial_port_number=3):
+    def __init__(self, serial_port_number=2):
         self.serial_port_number = serial_port_number
         self.serial_port = self.start_serial()
 

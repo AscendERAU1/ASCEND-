@@ -3,13 +3,14 @@ import csv
 import os
 import datetime
 
+# ASCEND Computer COM2 Featherweight Connection
 class featherweight_parsing:
 
     def __init__(self):
         self.packet_headers = []
         self.header_files = []
         ## SET BASED ON USB PLUG / TRACKER IN-USE ##
-        self.SERIAL_PORT_NUMBER = 5
+        self.SERIAL_PORT_NUMBER = 2
 
     def main(self):
         serialPort = self.start_serial(self.SERIAL_PORT_NUMBER)

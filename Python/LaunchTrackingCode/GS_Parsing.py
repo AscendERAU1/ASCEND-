@@ -9,7 +9,7 @@ class FeatherweightInterface:
         self.packet_headers = []
         self.header_files = []
         ## SET BASED ON USB PLUG / TRACKER IN-USE ##
-        self.SERIAL_PORT_NUMBER = 5
+        self.SERIAL_PORT_NUMBER = 3
 
     def main(self):
         serialPort = self.start_serial(self.SERIAL_PORT_NUMBER)

@@ -1,9 +1,9 @@
 import serial
 import time
 
-
+# ASCEND Computer COM6 Arduino Connection GS1
 class SerialComm:
-    def __init__(self, port='/dev/ttyACM0', baud_rate=115200, timeout=1):
+    def __init__(self, port='COM6', baud_rate=115200, timeout=1):
         """Initialize the serial connection."""
         self.ser = serial.Serial(port, baud_rate, timeout=timeout)
         time.sleep(2)  # Wait for the serial connection to initialize
