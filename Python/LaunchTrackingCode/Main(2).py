@@ -113,7 +113,7 @@ def switch_to_automatic_tracking():
         if message:
             payload_alt, xcoord, ycoord, vx, vy = parsing.extract_gps_coords(message)  # Get GPS and velocities
             coordinate2 = (xcoord, ycoord)  # Assign GPS coordinate for payload
-            if payload_alt is not None and ((coordinate2[0] > -123.8571589028068 or coordinate2[0] < -70.51451627738275) and (coordinate2[1] < 49.53851441184275 or coordinate2[1] > 25.272085123304667) ):
+            if payload_alt is not None and ((coordinate2[0] > -123.8571589028068 or coordinate2[0] < -70.51451627738275) and (coordinate2[1] < 49.53851441184275 or coordinate2[1] > 25.272085123304667) or (coordinate2[0]==0 or coordinate2[1]==0) ):
                 # Above: error checking for extenuating values set at most east west south and north parts of america
                 # coord2[0]= lat(e-w) coord2[1]= long(N-S)
                 AR.update(coordinate1, coordinate2, gs_alt, payload_alt)  # Update azimuth and range
@@ -140,6 +140,7 @@ def switch_to_automatic_tracking():
                     previous_y = 5
                 command = f"({previous_x},{previous_y})"
                 comm.send_command_to_arduino(command)
+                print(f"Arduino Command: {command}")
 
                 # Now call the CSV logging function
                 parsing.parse_gps_to_csv(message)
