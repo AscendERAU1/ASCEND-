@@ -139,6 +139,7 @@ def switch_to_automatic_tracking():
                     previous_y = 5
                 command = f"({previous_x},{previous_y})"
                 comm.send_command_to_arduino(command)
+                print(f"Arduino move: {command}")
 
                 # Now call the CSV logging function
                 parsing.parse_gps_to_csv(message)
