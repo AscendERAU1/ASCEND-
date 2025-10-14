@@ -113,10 +113,31 @@ def switch_to_automatic_tracking():
         if message:
             payload_alt, xcoord, ycoord, vx, vy = parsing.extract_gps_coords(message)  # Get GPS and velocities
             coordinate2 = (xcoord, ycoord)  # Assign GPS coordinate for payload
-            if payload_alt is not None and ((coordinate2[0] > -123.8571589028068 or coordinate2[0] < -70.51451627738275) and (coordinate2[1] < 49.53851441184275 or coordinate2[1] > 25.272085123304667) or (coordinate2[0]==0 or coordinate2[1]==0) ):
+            #if payload_alt is not None and ((coordinate2[0] > -123.8571589028068 or coordinate2[0] < -70.51451627738275) and (coordinate2[1] < 49.53851441184275 or coordinate2[1] > 25.272085123304667) or (coordinate2[0]==0 or coordinate2[1]==0) ):
                 # Above: error checking for extenuating values set at most east west south and north parts of america
                 # coord2[0]= lat(e-w) coord2[1]= long(N-S)
-                AR.update(coordinate1, coordinate2, gs_alt, payload_alt)  # Update azimuth and range
+             #   AR.update(coordinate1, coordinate2, gs_alt, payload_alt)  # Update azimuth and range
+
+            # Validate coordinates and altitude before processing
+            if (
+                    payload_alt is not None
+                    and -123.8571589028068 <= coordinate2[1] <= -70.51451627738275  # longitude bounds
+                    and 25.272085123304667 <= coordinate2[0] <= 49.53851441184275  # latitude bounds
+                    and coordinate2[0] != 0 and coordinate2[1] != 0  # nonzero coords
+            ):
+                # Error check for valid altitude (only upper bounds)
+                try:
+                    gs_alt_ft = float(gs_alt)
+                    payload_alt_ft = float(payload_alt)
+                    if payload_alt_ft > 600000 or gs_alt_ft > 15000:
+                        raise ValueError("Altitude exceeds realistic range.")
+                except ValueError as e:
+                    print(f"Altitude Error: {e}")
+                    print(f"Invalid altitudes — GS: {gs_alt}, Payload: {payload_alt}")
+                    continue  # Skip this loop iteration
+
+                # Proceed with azimuth/elevation update
+                AR.update(coordinate1, coordinate2, gs_alt_ft, payload_alt_ft)
 
                 # Get values from azimuth and range code
                 range_in_meters = AR.get_range()
