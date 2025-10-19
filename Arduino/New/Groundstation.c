@@ -58,10 +58,7 @@ test = abs(lamda_prev - lamda)
 }
 }
 
-void setup() {
-}
+void main(){
 
-void loop() {
-  // put your main code here, to run repeatedly:
 }
 
