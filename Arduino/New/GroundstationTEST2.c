@@ -10,8 +10,8 @@ float maxIter = 200.0f;
 // Define the struct
 typedef struct {
     float S;
-    float ForwardAzimuth;
-    float ElevationAngle;
+    float ForwardAzimuth;// Gets Azimuth in DEG's
+    float ElevationAngle;// Gets Angle in DEG's
 } AzimuthResult;
 
 // Function declaration
@@ -88,10 +88,17 @@ AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float a
 
     // Store results
     result.S = s;
-    result.ForwardAzimuth = atan2f(cos_U2 * sin_lamda, cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda) * 180 / PI;
+    result.ForwardAzimuth = atan2f(cos_U2 * sin_lamda, cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda) * 180 / PI; //180/Pi = conversion to deg
 
-    // Simple elevation calculation (optional placeholder)
-    result.ElevationAngle = atan2f(altitude2 - altitude1, s) * 180 / PI;
+    // Simple elevation calculation
+    float h1,h2,place1,place2,d,delta_altitude;
+    h1=altitude1*.3048;
+    h2=altitude2*.3048;
+    place1=pow((a+h1),2);
+    place2=pow((a+h2),2);
+    d=sqrt(place1+place2-2*(a+h1)*(a+h2)*cos(sigma));
+    delta_altitude=(h2-h1);
+    result.ElevationAngle = atan2f(delta_altitude, d) * 180 / PI;
 
     return result;
 }
@@ -100,13 +107,27 @@ int main() {
     double coordinate1[2] = {34.0522, -118.2437};
     double coordinate2[2] = {34.06, -118.3};
     float altitude1 = 100.0;
-    float altitude2 = 500.0;
+    float altitude2 = 2000.0;
+    float x_value, y_value, previous_y;
 
     AzimuthResult output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
-
+    
+    
+    x_value = -(output.ForwardAzimuth);
+    y_value = -(output.ElevationAngle);
+    
+    if(previous_y>5){
+        previous_y=5;
+        //SEND COMMAND TO ARDUINO GOES HERE 
+        // Take x and y and change them at the start of a bigger function that is to call this stuff and make it work correctly
+    }
+    
     printf("Distance (m): %f\n", output.S);
     printf("Forward Azimuth (deg): %f\n", output.ForwardAzimuth);
     printf("Elevation Angle (deg): %f\n", output.ElevationAngle);
+    printf("X_value(): %f\n",x_value);
+    printf("Y_value(): %f\n",y_value);
+
 
     return 0;
 }
