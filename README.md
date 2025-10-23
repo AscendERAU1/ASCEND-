@@ -2,7 +2,7 @@
 
 ERAU ASCEND! Files 
 
-Editing: 
+Editing
 
 Arduino (New)
 Ground station mini
