@@ -4,12 +4,13 @@ ERAU ASCEND! Files
 
 Editing: 
 
--Arduino (New)
--Ground station mini
--Python (Opposite)
+Arduino (New)
+Ground station mini
+Python (Opposite)
 
 Currently working:
--None
+None
 
 Archive:
--None
+
+None
