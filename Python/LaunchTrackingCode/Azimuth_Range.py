@@ -45,8 +45,7 @@ class AzimuthRange:
             cos2sigmam = cos_sigma - (2 * sin_U1 * sin_U2 / cos2_alpha)
             C = (self.f / 16) * cos2_alpha * (4 + self.f * (4 - 3 * cos2_alpha))
             lamda_prev = lamda
-            lamda = L + (1 - C) * self.f * sin_alpha * (
-                    sigma + C * sin_sigma * (cos2sigmam + C * cos_sigma * (-1 + 2 * cos2sigmam ** 2)))
+            lamda = L + (1 - C) * self.f * sin_alpha * (sigma + C * sin_sigma * (cos2sigmam + C * cos_sigma * (-1 + 2 * cos2sigmam ** 2)))
 
             test = abs(lamda_prev - lamda)
             if test <= tol:
