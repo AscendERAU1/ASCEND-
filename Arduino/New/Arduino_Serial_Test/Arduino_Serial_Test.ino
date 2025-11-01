@@ -1,4 +1,4 @@
-#include<string.h>
+#include <string.h>
 
 //Grabbing From serial
 typedef struct {
@@ -12,8 +12,7 @@ typedef struct {
 
 //Message through serial
 char message[75];
-// Unchanging
-int run=1;
+
 
 // Lengths Defines
 #define MAX_FIELDS 50
@@ -57,6 +56,7 @@ int splitMessage(const char *message, char fields[MAX_FIELDS][MAX_FIELD_LENGTH])
         strncpy(fields[count], start, MAX_FIELD_LENGTH - 1);
         fields[count][MAX_FIELD_LENGTH - 1] = '\0';
         count++;
+
     }
 
     // Mimic the Python behavior: drop the last element
@@ -73,15 +73,14 @@ GPSData extractGPS(const char *message) {
     int fieldCount = splitMessage(message, fields);
 
     GPSData gps = {0, 0, 0, 0, 0, false};
-
-    if (fieldCount > 19 && strcmp(fields[0], "@") == 0 && strcmp(fields[1], "GPS_STAT") == 0) {
+/*
+    if (fieldCount > 19 && strcmp(fields[0], "@") == 0 && strcmp(fields[1], "GPS_STAT") == 0) {*/
         gps.altitude = atof(fields[11]);
         gps.latitude = atof(fields[13]);
         gps.longitude = atof(fields[15]);
         gps.dop = atof(fields[17]);
         gps.sats = atof(fields[19]);
         gps.valid = true;
-    }
 
     return gps;
 }
@@ -103,16 +102,12 @@ void setup() {
 
 void loop() {
 
-  // Only Defining once to not take more memory
-  if (run == 1) {
-    message[0] = '\0';  // start with an empty string
-    run++;
-  }
 
   // Example Message 
   // @ GPS_STAT X X X X X 123456 X X 0 0 500 34.12345 -117.12345 1.2 8 99 *
 
-  // checking for serial will be used for featherweight
+
+  // Checking for serial will be used for featherweight
     if (Serial.available()) {
     String receivedString = Serial.readStringUntil('\n'); // Read until newline
     Serial.print("Received message: ");
@@ -121,18 +116,23 @@ void loop() {
     Serial.println(message); // Prints messages
     
   }
-   Serial.println(message); // Prints messages
-
 
 
   
   if(message!="\n"){
   // Extracting GPS from the gotten serial message
    GPSData gps = extractGPS(message);
-   message="\0";
-   if(gps.latitude!=0){
+
+
+  //Prints data
+   if(message[0]!='\0'){
    Serial.println(gps.latitude);
+    Serial.println(gps.longitude);
+    Serial.println(gps.altitude);
+    Serial.println(gps.dop);
+    Serial.println(gps.sats);
    }
+     message[0] = '\0';
   }
 
   /*
