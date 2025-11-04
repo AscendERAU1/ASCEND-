@@ -12,6 +12,8 @@ typedef struct {
 
 //Message through serial
 char message[75];
+char End_String[]="CRC:";
+String receivedString = "";
 
 
 // Lengths Defines
@@ -104,20 +106,39 @@ void loop() {
 
 
   // Example Message 
-  // @ GPS_STAT X X X X X 123456 X X 0 0 500 34.12345 -117.12345 1.2 8 99 *
-
-
+  // @ GPS_STAT 202 0000 00 00 00:17:06.570 CRC_OK  TRK GPSTrk05169 Alt 000000 lt +00.00000 ln +00.00000 Vel +0000 +000 +0000 Fix 0 #  0  0  0  0 000_00_00 000_00_00 000_00_00 000_00_00 000_00_00 CRC: 5F95
+  // Start message //Placeholder //Time     //CRC check not corrupt           //Latitude   //Longitude //Velocity           //GPS Fix type      //Additional raw satellite or time data (format placeholder)
+              //Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
+  //IMPORTANT ONES:                                                                                 || The rest is unneeded
+  // @ GPS_STAT                  :TIME                              ALT        LT           LN  
   // Checking for serial will be used for featherweight
     if (Serial.available()) {
-    String receivedString = Serial.readStringUntil('\n'); // Read until newline
+  /*
+    String receivedString = Serial.readStringUntil("@"); // Read until CRC
+    
     Serial.print("Received message: ");
     Serial.println(receivedString); //Prints incoming messages
-    strncpy(message, receivedString.c_str(), sizeof(message) - 1);
+    strncpy(message, receivedString.c_str(), sizeof(message));
     Serial.println(message); // Prints messages
     
   }
+*/
+///*
+char c = Serial.read();
+    receivedString += c;
 
-
+    // Check if the end of the string matches the terminator
+    if (receivedString.endsWith("@")) {
+      // Remove the terminator from the result
+      
+      // Print the received string
+      Serial.println("Received: " + receivedString);
+      
+      // Clear for next message
+      receivedString = "";
+    }
+    }
+//*/
   
   if(message!="\n"){
   // Extracting GPS from the gotten serial message
