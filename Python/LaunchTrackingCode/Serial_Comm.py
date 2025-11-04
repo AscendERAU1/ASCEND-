@@ -2,6 +2,7 @@ import serial
 import time
 
 # ASCEND Computer COM6 Arduino Connection GS1
+# Un needed in Arduino Code
 class SerialComm:
     def __init__(self, port='COM6', baud_rate=115200, timeout=1):
         """Initialize the serial connection."""
