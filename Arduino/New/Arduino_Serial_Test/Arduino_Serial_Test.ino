@@ -2,17 +2,17 @@
 
 //Grabbing From serial
 typedef struct {
-    double altitude;
-    double latitude;
-    double longitude;
-    double dop;
-    double sats;
-    bool valid;
+  double altitude;
+  double latitude;
+  double longitude;
+  double date;
+  double time;
+  bool valid;
 } GPSData;
 
 //Message through serial
 char message[75];
-char End_String[]="CRC:";
+char End_String[] = "CRC:";
 String receivedString = "";
 
 
@@ -24,9 +24,9 @@ String receivedString = "";
 // esp32 specific
 // out states used for button
 /*
- int button1in= 32;
- int button2in= 33;
- int button1out= 25;
+int button1in= 32;
+int button2in= 33;
+int button1out= 25;
 int button2out= 26;
 int buttonstate=0;
 int buttonstate2=0;
@@ -38,59 +38,35 @@ int i=0;
 // Split message into fields
 // ============================
 int splitMessage(const char *message, char fields[MAX_FIELDS][MAX_FIELD_LENGTH]) {
-    int count = 0;
-    const char *start = message;
-    const char *end;
 
-    while ((end = strchr(start, ' ')) != NULL && count < MAX_FIELDS) {
-        int len = end - start;
-        if (len > 0) { // ignore empty segments
-            if (len >= MAX_FIELD_LENGTH) len = MAX_FIELD_LENGTH - 1;
-            strncpy(fields[count], start, len);
-            fields[count][len] = '\0';
-            count++;
-        }
-        start = end + 1;
-    }
-
-    // Take the last field (up to '*')
-    if (*start != '\0' && count < MAX_FIELDS) {
-        strncpy(fields[count], start, MAX_FIELD_LENGTH - 1);
-        fields[count][MAX_FIELD_LENGTH - 1] = '\0';
-        count++;
-
-    }
-
-    // Mimic the Python behavior: drop the last element
-    if (count > 0) count--;
-
-    return count;
+  sscanf(message, "%*[^A]Alt %19s", fields[0]);
+  sscanf(message,"%*[^A]lt %19s", fields[1]);
+  sscanf(message,"%*[^A]ln %19s", fields[2]);
 }
 
 // ============================
 // Extract GPS data
 // ============================
 GPSData extractGPS(const char *message) {
-    char fields[MAX_FIELDS][MAX_FIELD_LENGTH];
-    int fieldCount = splitMessage(message, fields);
+  char fields[MAX_FIELDS][MAX_FIELD_LENGTH];
+  int fieldCount = splitMessage(message, fields);
+  GPSData gps = { 0, 0, 0, 0, 0, false };
 
-    GPSData gps = {0, 0, 0, 0, 0, false};
-/*
-    if (fieldCount > 19 && strcmp(fields[0], "@") == 0 && strcmp(fields[1], "GPS_STAT") == 0) {*/
-        gps.altitude = atof(fields[11]);
-        gps.latitude = atof(fields[13]);
-        gps.longitude = atof(fields[15]);
-        gps.dop = atof(fields[17]);
-        gps.sats = atof(fields[19]);
-        gps.valid = true;
-
-    return gps;
+if (strncmp(message, "GPS_STAT", 8) == 0) {
+  gps.altitude = atof(fields[0]);
+  gps.latitude = atof(fields[1]);
+  gps.longitude = atof(fields[2]);
+  gps.date = atof(fields[3]);
+  gps.time = atof(fields[4]);
+  gps.valid = true;
+}
+  return gps;
 }
 
 
 
 void setup() {
-  Serial.begin(115200); // opens serial port, sets data rate to 115200 bps
+  Serial.begin(115200);  // opens serial port, sets data rate to 115200 bps
 
 
   //button
@@ -105,55 +81,67 @@ void setup() {
 void loop() {
 
 
-  // Example Message 
+  // Example Message
   // @ GPS_STAT 202 0000 00 00 00:17:06.570 CRC_OK  TRK GPSTrk05169 Alt 000000 lt +00.00000 ln +00.00000 Vel +0000 +000 +0000 Fix 0 #  0  0  0  0 000_00_00 000_00_00 000_00_00 000_00_00 000_00_00 CRC: 5F95
   // Start message //Placeholder //Time     //CRC check not corrupt           //Latitude   //Longitude //Velocity           //GPS Fix type      //Additional raw satellite or time data (format placeholder)
-              //Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
+  //Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
   //IMPORTANT ONES:                                                                                 || The rest is unneeded
-  // @ GPS_STAT                  :TIME                              ALT        LT           LN  
+  // @ GPS_STAT                  :TIME                              ALT        LT           LN
   // Checking for serial will be used for featherweight
-    if (Serial.available()) {
-  /*
-    String receivedString = Serial.readStringUntil("@"); // Read until CRC
-    
-    Serial.print("Received message: ");
-    Serial.println(receivedString); //Prints incoming messages
-    strncpy(message, receivedString.c_str(), sizeof(message));
-    Serial.println(message); // Prints messages
-    
-  }
-*/
-///*
-char c = Serial.read();
+  /*if (Serial.available()) {
+
+    char c = Serial.read();
     receivedString += c;
 
     // Check if the end of the string matches the terminator
     if (receivedString.endsWith("@")) {
-      // Remove the terminator from the result
-      
+
       // Print the received string
       Serial.println("Received: " + receivedString);
-      
+
       // Clear for next message
       receivedString = "";
     }
+
+    if (receivedString.length() > 200) {
+      Serial.println("Buffer overflow — clearing");
+      receivedString = "";
     }
-//*/
-  
-  if(message!="\n"){
-  // Extracting GPS from the gotten serial message
-   GPSData gps = extractGPS(message);
+    delay(100);
+  }
+*/
+  if (Serial.available()) {
+    char c = Serial.read();
+    receivedString += c;
+
+    if (receivedString.endsWith("CRC:")) {
+      Serial.println("Received: " + receivedString);
+      receivedString = "";
+    }
+
+    if (receivedString.length() > 200) {
+      Serial.println("Buffer overflow — clearing");
+      receivedString = "";
+    }
+  }
+
+  delay(1);  // Prevent watchdog resets
 
 
-  //Prints data
-   if(message[0]!='\0'){
-   Serial.println(gps.latitude);
-    Serial.println(gps.longitude);
-    Serial.println(gps.altitude);
-    Serial.println(gps.dop);
-    Serial.println(gps.sats);
-   }
-     message[0] = '\0';
+  if (message != "\n") {
+    // Extracting GPS from the gotten serial message
+    GPSData gps = extractGPS(message);
+
+
+    //Prints data
+    if (message[0] != '\0') {
+      Serial.println(gps.latitude);
+      Serial.println(gps.longitude);
+      Serial.println(gps.altitude);
+      Serial.println(gps.date);
+      Serial.println(gps.time);
+    }
+    message[0] = '\0';
   }
 
   /*
