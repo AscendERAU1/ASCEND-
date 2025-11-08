@@ -21,6 +21,8 @@ String receivedString = "";
 #define MAX_FIELD_LENGTH 32
 #define MAX_MESSAGE_LENGTH 256
 
+#define LIGHT 12
+
 // esp32 specific
 // out states used for button
 /*
@@ -68,6 +70,7 @@ if (strncmp(message, "GPS_STAT", 8) == 0) {
 void setup() {
   Serial.begin(115200);  // opens serial port, sets data rate to 115200 bps
 
+  pinMode(LIGHT,OUTPUT);
 
   //button
   /*
@@ -78,7 +81,7 @@ void setup() {
   */
 }
 
-void loop() {
+//void loop() {
 
 
   // Example Message
@@ -110,10 +113,15 @@ void loop() {
     delay(100);
   }
 */
+/*
   if (Serial.available()) {
     char c = Serial.read();
     receivedString += c;
-
+    if (receivedString != ""){
+      digitalWrite(LIGHT, HIGH);
+      delay(500);
+      digitalWrite(LIGHT, LOW);
+    }
     if (receivedString.endsWith("CRC:")) {
       Serial.println("Received: " + receivedString);
       receivedString = "";
@@ -122,6 +130,7 @@ void loop() {
     if (receivedString.length() > 200) {
       Serial.println("Buffer overflow — clearing");
       receivedString = "";
+
     }
   }
 
@@ -130,9 +139,9 @@ void loop() {
 
   if (message != "\n") {
     // Extracting GPS from the gotten serial message
+    Serial.println(message);   
     GPSData gps = extractGPS(message);
-
-
+ 
     //Prints data
     if (message[0] != '\0') {
       Serial.println(gps.latitude);
@@ -142,7 +151,40 @@ void loop() {
       Serial.println(gps.time);
     }
     message[0] = '\0';
+
   }
+*/
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    receivedString += c;
+
+    if (receivedString.indexOf("CRC:") != -1) {
+      // Copy to C string buffer
+      receivedString.toCharArray(message, sizeof(message));
+
+      Serial.println("Received:");
+      Serial.println(message);
+
+      GPSData gps = extractGPS(message);
+      if (gps.valid) {
+        Serial.print("Altitude: "); Serial.println(gps.altitude);
+        Serial.print("Latitude: "); Serial.println(gps.latitude);
+        Serial.print("Longitude: "); Serial.println(gps.longitude);
+      }
+
+      receivedString = "";  // clear for next message
+      digitalWrite(LIGHT, HIGH);
+      delay(200);
+      digitalWrite(LIGHT, LOW);
+    }
+
+    if (receivedString.length() > 200) {
+      Serial.println("Buffer overflow — clearing");
+      receivedString = "";
+    }
+  }
+}
 
   /*
   //Used for button state (NOT LEVER)
@@ -166,4 +208,4 @@ if (buttonstate2 == LOW) {   // Button pressed
     Serial.println("Button Released - Light OFF");
   }
   */
-}
+
