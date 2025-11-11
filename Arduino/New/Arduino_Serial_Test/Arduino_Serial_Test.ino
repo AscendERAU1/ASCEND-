@@ -91,69 +91,8 @@ void setup() {
   //IMPORTANT ONES:                                                                                 || The rest is unneeded
   // @ GPS_STAT                  :TIME                              ALT        LT           LN
   // Checking for serial will be used for featherweight
-  /*if (Serial.available()) {
-
-    char c = Serial.read();
-    receivedString += c;
-
-    // Check if the end of the string matches the terminator
-    if (receivedString.endsWith("@")) {
-
-      // Print the received string
-      Serial.println("Received: " + receivedString);
-
-      // Clear for next message
-      receivedString = "";
-    }
-
-    if (receivedString.length() > 200) {
-      Serial.println("Buffer overflow — clearing");
-      receivedString = "";
-    }
-    delay(100);
-  }
-*/
-/*
-  if (Serial.available()) {
-    char c = Serial.read();
-    receivedString += c;
-    if (receivedString != ""){
-      digitalWrite(LIGHT, HIGH);
-      delay(500);
-      digitalWrite(LIGHT, LOW);
-    }
-    if (receivedString.endsWith("CRC:")) {
-      Serial.println("Received: " + receivedString);
-      receivedString = "";
-    }
-
-    if (receivedString.length() > 200) {
-      Serial.println("Buffer overflow — clearing");
-      receivedString = "";
-
-    }
-  }
-
-  delay(1);  // Prevent watchdog resets
-
-
-  if (message != "\n") {
-    // Extracting GPS from the gotten serial message
-    Serial.println(message);   
-    GPSData gps = extractGPS(message);
  
-    //Prints data
-    if (message[0] != '\0') {
-      Serial.println(gps.latitude);
-      Serial.println(gps.longitude);
-      Serial.println(gps.altitude);
-      Serial.println(gps.date);
-      Serial.println(gps.time);
-    }
-    message[0] = '\0';
-
-  }
-*/
+ 
 void loop() {
   while (Serial.available()) {
     char c = Serial.read();
