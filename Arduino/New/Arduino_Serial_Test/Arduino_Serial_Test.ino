@@ -1,31 +1,34 @@
-#include <SPI.h>
-#include <SD.h>
-#include <FS.h>
-
-int incomingByte = 0; // Start bit 
+#include <string.h>
 
 //Grabbing From serial
-struct extra{
-  int length[5];
-  int year[4];
-  int month;
-  int day[2];
-  int time[100];
-};
+typedef struct {
+  double altitude;
+  double latitude;
+  double longitude;
+  double date;
+  double time;
+  bool valid;
+} GPSData;
 
-// sd card UN NEEDED (hopefully) 
-// Needed for testing to see what comes in
-#define SD_MOSI 23
-#define SD_MISO 19
-#define SD_SCLK 18
-#define SD_CS 5
+//Message through serial
+char message[75];
+char End_String[] = "CRC:";
+String receivedString = "";
+
+
+// Lengths Defines
+#define MAX_FIELDS 50
+#define MAX_FIELD_LENGTH 32
+#define MAX_MESSAGE_LENGTH 256
+
+#define LIGHT 12
 
 // esp32 specific
 // out states used for button
 /*
- int button1in= 32;
- int button2in= 33;
- int button1out= 25;
+int button1in= 32;
+int button2in= 33;
+int button1out= 25;
 int button2out= 26;
 int buttonstate=0;
 int buttonstate2=0;
@@ -33,9 +36,41 @@ int i=0;
 */
 
 
+// ============================
+// Split message into fields
+// ============================
+int splitMessage(const char *message, char fields[MAX_FIELDS][MAX_FIELD_LENGTH]) {
+
+  sscanf(message, "%*[^A]Alt %19s", fields[0]);
+  sscanf(message,"%*[^A]lt %19s", fields[1]);
+  sscanf(message,"%*[^A]ln %19s", fields[2]);
+}
+
+// ============================
+// Extract GPS data
+// ============================
+GPSData extractGPS(const char *message) {
+  char fields[MAX_FIELDS][MAX_FIELD_LENGTH];
+  int fieldCount = splitMessage(message, fields);
+  GPSData gps = { 0, 0, 0, 0, 0, false };
+
+if (strncmp(message, "GPS_STAT", 8) == 0) {
+  gps.altitude = atof(fields[0]);
+  gps.latitude = atof(fields[1]);
+  gps.longitude = atof(fields[2]);
+  gps.date = atof(fields[3]);
+  gps.time = atof(fields[4]);
+  gps.valid = true;
+}
+  return gps;
+}
+
+
+
 void setup() {
-  Serial.begin(115200); // opens serial port, sets data rate to 115200 bps
-  SPI.begin(SD_SCLK, SD_MISO, SD_MOSI, SD_CS); // sd card startup
+  Serial.begin(115200);  // opens serial port, sets data rate to 115200 bps
+
+  pinMode(LIGHT,OUTPUT);
 
   //button
   /*
@@ -46,28 +81,49 @@ void setup() {
   */
 }
 
+//void loop() {
+
+
+  // Example Message
+  // @ GPS_STAT 202 0000 00 00 00:17:06.570 CRC_OK  TRK GPSTrk05169 Alt 000000 lt +00.00000 ln +00.00000 Vel +0000 +000 +0000 Fix 0 #  0  0  0  0 000_00_00 000_00_00 000_00_00 000_00_00 000_00_00 CRC: 5F95
+  // Start message //Placeholder //Time     //CRC check not corrupt           //Latitude   //Longitude //Velocity           //GPS Fix type      //Additional raw satellite or time data (format placeholder)
+  //Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
+  //IMPORTANT ONES:                                                                                 || The rest is unneeded
+  // @ GPS_STAT                  :TIME                              ALT        LT           LN
+  // Checking for serial will be used for featherweight
+ 
+ 
 void loop() {
-  // send data only when you receive data:
-  
-  // checking for serial will be used for featherweight
-  /*
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    incomingByte = Serial.read();
-    //check for @
-    if(incomingByte==64){
+  while (Serial.available()) {
+    char c = Serial.read();
+    receivedString += c;
 
+    if (receivedString.indexOf("CRC:") != -1) {
+      // Copy to C string buffer
+      receivedString.toCharArray(message, sizeof(message));
+
+      Serial.println("Received:");
+      Serial.println(message);
+
+      GPSData gps = extractGPS(message);
+      if (gps.valid) {
+        Serial.print("Altitude: "); Serial.println(gps.altitude);
+        Serial.print("Latitude: "); Serial.println(gps.latitude);
+        Serial.print("Longitude: "); Serial.println(gps.longitude);
+      }
+
+      receivedString = "";  // clear for next message
+      digitalWrite(LIGHT, HIGH);
+      delay(200);
+      digitalWrite(LIGHT, LOW);
     }
-    // say what you got:
-    Serial.println("Start");    
-    Serial.println(incomingByte);
-    Serial.println(incomingByte, DEC);
-    Serial.println("END");
-  
+
+    if (receivedString.length() > 200) {
+      Serial.println("Buffer overflow — clearing");
+      receivedString = "";
+    }
   }
-  */
-
-
+}
 
   /*
   //Used for button state (NOT LEVER)
@@ -91,4 +147,4 @@ if (buttonstate2 == LOW) {   // Button pressed
     Serial.println("Button Released - Light OFF");
   }
   */
-}
+
