@@ -1,3 +1,9 @@
+/* Azimuth.h
+//
+// Used for decleration of the azimuth struct and function
+// Used in Arduino_Ground_Station.ino
+*/
+
 #ifndef AZIMUTH_H
 #define AZIMUTH_H
 

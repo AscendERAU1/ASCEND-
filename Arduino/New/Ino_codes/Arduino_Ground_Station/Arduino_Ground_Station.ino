@@ -59,7 +59,7 @@
 
 // Defines for GPS Parsing
 
-/* NOT USED CURRENTLY
+/* NOT USED CURRENTLY need to parse time and date to use
 typedef struct {
   double altitude;
   double latitude;
@@ -82,9 +82,30 @@ typedef struct {
   bool valid;
 } GPSData;
 
+float x_value, y_value, previous_y, previous_x;
+
 char buffer[BUFFER_SIZE];
 size_t bufIndex = 0;
 
+bool readSerialMessage() {
+  while (Serial.available()) {
+    char c = Serial.read();
+
+    // Prevent buffer overflow
+    if (bufIndex >= BUFFER_SIZE - 1) {
+      bufIndex = 0;
+    }
+
+    buffer[bufIndex++] = c;
+    buffer[bufIndex] = '\0';
+
+    // End of message detected
+    if (strstr(buffer, "CRC:") != NULL) {
+      return true;  // buffer now contains full message
+    }
+  }
+  return false;  // no complete message yet
+}
 
 
 /* ---------- GPS PARSER ---------- */
@@ -109,7 +130,7 @@ GPSData extractGPS(const char *msg) {
 }
 
 //=======================================================
-//===================Azimuth Range=======================
+//=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
 //=======================================================
 // Define constants
 float a = 6378137.0f;             // semi-major axis (meters)
@@ -117,7 +138,7 @@ float f = 1.0f / 298.257223563f;  // flattening
 float maxIter = 200.0f;
 
 
-// Function declaration
+// Function to do azimuth math
 AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float altitude1, float altitude2) {
   AzimuthResult result;
   float b = (1.0f - f) * a;
@@ -204,7 +225,7 @@ AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float a
 }
 
 //Servo control
-// Defines 
+// Defines
 // Define Tic controllers with their addresses
 TicI2C tic1(14);  // Address for the first Tic (motor X)
 TicI2C tic2(15);  // Address for the second Tic (motor Y)
@@ -213,18 +234,19 @@ TicI2C tic2(15);  // Address for the second Tic (motor Y)
 const long stepsPerRevolution = 45701;  // Set this to your motor's steps per 360° rotation
 int SetZeroValue = 0;
 long speedX = 0;
-long speedY = 0; 
+long speedY = 0;
 int joyCenter = 512;
 int deadzone = 200;
 int lowerDeadzone = joyCenter - deadzone;
 int upperDeadzone = joyCenter + deadzone;
+bool servoflag = false;
 
 // Joystick pins
 const int joystickXPin = A0;
 const int joystickYPin = A1;
 
 // Joystick settings
-const int centerThreshold = 100; // Deadzone threshold around center position
+const int centerThreshold = 100;  // Deadzone threshold around center position
 const long maxSpeed = 20000000;   // Max speed for the motor in steps per second (adjust as necessary)
 
 // Servo Commands defines
@@ -260,10 +282,10 @@ void waitForPosition(TicI2C &ticController, int32_t targetPosition) {
 // Convert the angle to steps and set the target position for the specified motor
 void setMotorPosition(char motor, int32_t angle) {
   int32_t steps = (angle * stepsPerRevolution) / 360;  // Convert angle to steps
-// Note that the following sets a new zero point after each movemement for testing purposes. In future, use calibration message to set zero and move from there. 
+                                                       // Note that the following sets a new zero point after each movemement for testing purposes. In future, use calibration message to set zero and move from there.
   if (motor == 'X') {
     tic1.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
-    waitForPosition(tic1, steps);    
+    waitForPosition(tic1, steps);
   } else if (motor == 'Y') {
     tic2.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
     waitForPosition(tic2, steps);
@@ -289,12 +311,12 @@ void controlVelocityWithJoystick() {
   } else if (joystickY > upperDeadzone) {
     speedY = maxSpeed;
   }
-  
+
 
   // Set motor speeds
   tic1.setTargetVelocity(speedX);
   tic2.setTargetVelocity(speedY);
-/*
+  /*
   Serial.print("Joystick X velocity: ");
   Serial.print(speedX);
   Serial.println(" steps/s");
@@ -322,97 +344,86 @@ void resetCommandFlag() {
 
 void setup() {
   Serial.begin(115200);
-  delay(1000); // delay to make sure serial is established
-  pinMode(LIGHT, OUTPUT); //Light for serial com
-  // DEFINE SWITCHES AND LIGHTS RESPECIVELY HERE 
-   // Initialize Tic controllers and exit safe start mode
+  delay(1000);             // delay to make sure serial is established
+  pinMode(LIGHT, OUTPUT);  //Light for serial com
+
+  // DEFINE SWITCHES AND LIGHTS RESPECIVELY HERE
+
+  // Initialize Tic controllers and exit safe start mode
   tic1.haltAndSetPosition(0);  // Set current position of tic1 to 0
   tic2.haltAndSetPosition(0);  // Set current position of tic2 to 0
   tic1.exitSafeStart();
   tic2.exitSafeStart();
-
+  GPSData gps = extractGPS(buffer);
 }
 
 
 void loop() {
-  // Staring Serial
-  while (Serial.available()) {
-    char c = Serial.read();
 
-    // Prevent buffer overflow
-    if (bufIndex >= BUFFER_SIZE - 1) {
-      bufIndex = 0;
-    }
+  static GPSData gps;           // <-- persistent GPS data
+  static AzimuthResult output;  // <-- persistent azimuth result
 
-    buffer[bufIndex++] = c;
-    buffer[bufIndex] = '\0';
+  // Scanning Serial
+  if (readSerialMessage()) {
+    Serial.println("Received:");
+    Serial.println(buffer);
 
-    // End of message detected (CRC always ends the line)
-    if (strstr(buffer, "CRC:") != NULL) {
+    //Parsing GPS Data
+    gps = extractGPS(buffer); 
 
-      Serial.println("Received:");
-      Serial.println(buffer);
-
-      //Parsing GPS Data
-      GPSData gps = extractGPS(buffer);
-
-
-
-    // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
-    // Includes:
-    // Gps parsing, Azimuth Range
-      if (gps.valid) {
-        Serial.println("GPS DATA FOUND");
-        Serial.print("Altitude: ");
-        Serial.println(gps.altitude);
-        Serial.print("Latitude: ");
-        Serial.println(gps.latitude, 6);
-        Serial.print("Longitude: ");
-        Serial.println(gps.longitude, 6);
-
-        //Blink Light
-        digitalWrite(LIGHT, HIGH);
-        delay(200);
-        digitalWrite(LIGHT, LOW);
-
-        double coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
-        double coordinate2[2] = { gps.latitude, gps.longitude };
-        float altitude1 = 100.0;
-        float altitude2 = 2000.0;
-        float x_value, y_value, previous_y;
-
-        // Run Function to calculate it
-        AzimuthResult output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
-
-        // Sets x_value and y_value
-        x_value = -(output.ForwardAzimuth);
-        y_value = -(output.ElevationAngle);
-
-        if (previous_y > 5) {
-          previous_y = 5;
-          //SEND COMMAND TO ARDUINO GOES HERE
-          // Take x and y and change them at the start of a bigger function that is to call this stuff and make it work correctly
-        }
-
-        //Printing to see output
-        //WILL NOT WORK IN ARDUINO
-        /*
-        printf("Distance (m): %f\n", output.S);
-        printf("Forward Azimuth (deg): %f\n", output.ForwardAzimuth);
-        printf("Elevation Angle (deg): %f\n", output.ElevationAngle);
-        printf("X_value(): %f\n", x_value);
-        printf("Y_value(): %f\n", y_value);
-        */
-      } // end of gps valid if
-
-      // Clear buffer for next message
-      bufIndex = 0;
-      buffer[0] = '\0';
-    }
+    // Clear buffer for next message
+    bufIndex = 0;
+    buffer[0] = '\0';
   }
+
+
+  // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
+  // Includes:
+  // Gps parsing, Azimuth Range
+  if (gps.valid && (gps.latitude != previous_x && gps.longitude != previous_y)) {
+    Serial.println("GPS DATA FOUND");
+    Serial.print("Altitude: ");
+    Serial.println(gps.altitude);
+    Serial.print("Latitude: ");
+    Serial.println(gps.latitude, 6);
+    Serial.print("Longitude: ");
+    Serial.println(gps.longitude, 6);
+
+    //Blink Light
+    digitalWrite(LIGHT, HIGH);
+    delay(200);
+    digitalWrite(LIGHT, LOW);
+
+    double coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
+    double coordinate2[2] = { gps.latitude, gps.longitude };
+    float altitude1 = 100.0;  //given altitude
+    float altitude2 = gps.altitude;
+
+                        // Run Function to calculate it
+                         output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
+
+    // Sets x_value and y_value
+    x_value = -(output.ForwardAzimuth);
+    y_value = -(output.ElevationAngle);
+
+    previous_y = gps.longitude;
+                   previous_x = gps.latitude;
+                                  servoflag = true;
+
+  }  // end of gps valid if
+
+  if (servoflag && SetZeroValue == 1) {
+    int32_t xSteps = (x_value * stepsPerRevolution) / 360;  // Convert X angle to steps
+    int32_t ySteps = (y_value * stepsPerRevolution) / 360;  // Convert Y angle to steps
+
+    tic1.setTargetPosition(xSteps);  // Move X motor
+    tic2.setTargetPosition(ySteps);  // Move Y motor
+  }
+
+
 }
 
-// START OF REFERENCE CODE 
+// START OF REFERENCE CODE
 // SERVO CODE
 
 /* UN NEEDED BUT REFERENCED
@@ -422,28 +433,15 @@ void loop() {
     int commaIndex = input.indexOf(',');           // Find the comma separator
 */
 
-    if (commaIndex != -1) {
-      String xStr = input.substring(0, commaIndex);  // Extract X part
-      xStr.trim();  // Trim whitespace from X part
-      String yStr = input.substring(commaIndex + 1); // Extract Y part
-      yStr.trim();  // Trim whitespace from Y part
+//SERVO CONTROL
+gif (SetZeroValue == 1) {
 
-      int32_t xAngle = xStr.toInt();  // Convert X string to integer
-      int32_t yAngle = yStr.toInt();  // Convert Y string to integer
-
-      if (SetZeroValue == 1) {
-        int32_t xSteps = (xAngle * stepsPerRevolution) / 360; // Convert X angle to steps
-        int32_t ySteps = (yAngle * stepsPerRevolution) / 360; // Convert Y angle to steps
-
-        tic1.setTargetPosition(xSteps); // Move X motor
-        tic2.setTargetPosition(ySteps); // Move Y motor
-
-        while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
-          resetCommandTimeout();
-          checkForNewCommand();  // Check for new input during motor movement
-          if (newCommandReceived) return;  // Interrupt if new command is detected
-        }
-        /*
+  while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
+    resetCommandTimeout();
+    checkForNewCommand();            // Check for new input during motor movement
+    if (newCommandReceived) return;  // Interrupt if new command is detected
+  }
+  /*
         Serial.print("Moved X motor to ");
         Serial.print(xAngle);
         Serial.println(" degrees");
@@ -452,18 +450,23 @@ void loop() {
         Serial.print(yAngle);
         Serial.println(" degrees");
         */
-      } else {
-        Serial.println("Zero position not set. Use 'S0' to set zero position first.");
-      }
-    } else {
-      Serial.println("Invalid input format. Ensure input is in the format (X,Y).");
-    }
+
+  if (commaIndex != -1) {
+    String xStr = input.substring(0, commaIndex);   // Extract X part
+    xStr.trim();                                    // Trim whitespace from X part
+    String yStr = input.substring(commaIndex + 1);  // Extract Y part
+    yStr.trim();                                    // Trim whitespace from Y part
+
+    int32_t xAngle = xStr.toInt();  // Convert X string to integer
+    int32_t yAngle = yStr.toInt();  // Convert Y string to integer
+
+
   }
   // Handle 'J0' input for joystick control
   else if (input.equalsIgnoreCase("J0")) {
 
     while (true) {
-      checkForNewCommand();  // Check for new input during joystick control
+      checkForNewCommand();            // Check for new input during joystick control
       if (newCommandReceived) return;  // Interrupt if new command is detected
 
       controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
@@ -477,7 +480,7 @@ void loop() {
   }
   // Handle single motor control input (e.g., X90 or Y-180)
   else if (input.length() > 1) {
-    char motor = input.charAt(0);           // Get motor identifier ('X' or 'Y')
+    char motor = input.charAt(0);                // Get motor identifier ('X' or 'Y')
     int32_t angle = input.substring(1).toInt();  // Convert the rest to an integer for angle
 
     if (SetZeroValue == 1) {
@@ -493,4 +496,6 @@ void loop() {
   }
 
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown
-  delay(50); // Delay for stability
+  delay(50);              // Delay for stability
+
+
