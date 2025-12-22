@@ -30,7 +30,7 @@
 // Start message //Placeholder //Time     //CRC check not corrupt           //Latitude   //Longitude //Velocity           //GPS Fix type      //Additional raw satellite or time data (format placeholder)
 //Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
 //IMPORTANT ONES:                                                                                 || The rest is unneeded
-// @ GPS_STAT                  :TIME                              ALT        LT           LN
+// @ GPS_STAT                  :TIME                              ALT        LT           LN                                                                            (END POINT DELIMINATOR)   CRC: 
 // Checking for serial will be used for featherweight
 //
 // Azimuth Range(description)
@@ -369,7 +369,7 @@ void loop() {
     Serial.println(buffer);
 
     //Parsing GPS Data
-    gps = extractGPS(buffer); 
+    gps = extractGPS(buffer);
 
     // Clear buffer for next message
     bufIndex = 0;
@@ -399,16 +399,16 @@ void loop() {
     float altitude1 = 100.0;  //given altitude
     float altitude2 = gps.altitude;
 
-                        // Run Function to calculate it
-                         output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
+    // Run Function to calculate it
+    output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
 
     // Sets x_value and y_value
     x_value = -(output.ForwardAzimuth);
     y_value = -(output.ElevationAngle);
 
     previous_y = gps.longitude;
-                   previous_x = gps.latitude;
-                                  servoflag = true;
+    previous_x = gps.latitude;
+    servoflag = true;
 
   }  // end of gps valid if
 
@@ -419,8 +419,6 @@ void loop() {
     tic1.setTargetPosition(xSteps);  // Move X motor
     tic2.setTargetPosition(ySteps);  // Move Y motor
   }
-
-
 }
 
 // START OF REFERENCE CODE
@@ -434,7 +432,7 @@ void loop() {
 */
 
 //SERVO CONTROL
-gif (SetZeroValue == 1) {
+gif(SetZeroValue == 1) {
 
   while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
     resetCommandTimeout();
@@ -497,5 +495,3 @@ gif (SetZeroValue == 1) {
 
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown
   delay(50);              // Delay for stability
-
-
