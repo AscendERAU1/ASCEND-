@@ -116,12 +116,7 @@ GPSData extractGPS(const char *msg) {
   if (strstr(msg, "@ GPS_STAT") != NULL) {
 
     // Parse Alt, lat, lon
-    if (sscanf(msg,
-               "%*[^A]Alt %lf lt %lf ln %lf",
-               &gps.altitude,
-               &gps.latitude,
-               &gps.longitude)
-        == 3) {
+    if (sscanf(msg, "%*[^A]Alt %lf lt %lf ln %lf", &gps.altitude, &gps.latitude, &gps.longitude) == 3) {
       gps.valid = true;
     }
   }
@@ -328,18 +323,38 @@ void controlVelocityWithJoystick() {
   delayWhileResettingCommandTimeout(100);
 }
 
+//un needed
 volatile bool newCommandReceived = false;  // Global flag for new command
 
+//un needed
 void checkForNewCommand() {
   if (Serial.available() > 0) {
     newCommandReceived = true;  // Set the flag when new input is available
   }
 }
 
+//un needed or can be changed
 void resetCommandFlag() {
   newCommandReceived = false;  // Reset the flag
 }
 
+bool joyleverCheck() {
+  //check for joystick lever voltage
+  if (is flipped) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool zeroleverCheck(){
+    //check for zero lever voltage
+  if (is flipped) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 
 void setup() {
@@ -360,8 +375,8 @@ void setup() {
 
 void loop() {
 
-  static GPSData gps;           // <-- persistent GPS data
-  static AzimuthResult output;  // <-- persistent azimuth result
+  static GPSData gps;
+  static AzimuthResult output;
 
   // Scanning Serial
   if (readSerialMessage()) {
@@ -418,64 +433,32 @@ void loop() {
 
     tic1.setTargetPosition(xSteps);  // Move X motor
     tic2.setTargetPosition(ySteps);  // Move Y motor
+    // may need setMotorPosition();
+
+    while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
+      resetCommandTimeout();
+      if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
+    }
+  } else if (joylever) {
+    while (joylever) {
+      joylever = joyleverCheck();
+      controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
+    }
   }
+  zerolever=zeroleverCheck();
+  if(zerolever){
+    SetZeroValue=1
+    SetZeroPosition();
+  }
+  resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
 
 // START OF REFERENCE CODE
 // SERVO CODE
 
-/* UN NEEDED BUT REFERENCED
-  // Handle tuple input for simultaneous motor movement
-  if (input.startsWith("(") && input.endsWith(")")) {
-    input = input.substring(1, input.length() - 1); // Remove parentheses
-    int commaIndex = input.indexOf(',');           // Find the comma separator
-*/
-
 //SERVO CONTROL
-gif(SetZeroValue == 1) {
 
-  while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
-    resetCommandTimeout();
-    checkForNewCommand();            // Check for new input during motor movement
-    if (newCommandReceived) return;  // Interrupt if new command is detected
-  }
-  /*
-        Serial.print("Moved X motor to ");
-        Serial.print(xAngle);
-        Serial.println(" degrees");
-
-        Serial.print("Moved Y motor to ");
-        Serial.print(yAngle);
-        Serial.println(" degrees");
-        */
-
-  if (commaIndex != -1) {
-    String xStr = input.substring(0, commaIndex);   // Extract X part
-    xStr.trim();                                    // Trim whitespace from X part
-    String yStr = input.substring(commaIndex + 1);  // Extract Y part
-    yStr.trim();                                    // Trim whitespace from Y part
-
-    int32_t xAngle = xStr.toInt();  // Convert X string to integer
-    int32_t yAngle = yStr.toInt();  // Convert Y string to integer
-
-
-  }
-  // Handle 'J0' input for joystick control
-  else if (input.equalsIgnoreCase("J0")) {
-
-    while (true) {
-      checkForNewCommand();            // Check for new input during joystick control
-      if (newCommandReceived) return;  // Interrupt if new command is detected
-
-      controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
-    }
-  }
-  // Handle 'S0' input for setting zero position
-  else if (input.equalsIgnoreCase("S0")) {
-    SetZeroPosition();
-    SetZeroValue = 1;
-    Serial.println("Zero position set.");
-  }
+/*
   // Handle single motor control input (e.g., X90 or Y-180)
   else if (input.length() > 1) {
     char motor = input.charAt(0);                // Get motor identifier ('X' or 'Y')
@@ -488,10 +471,5 @@ gif(SetZeroValue == 1) {
       SetZeroPosition();
     }
   }
-  // Invalid input handling
-  else {
-    Serial.println("Invalid input. Please use the format (X,Y), J0, or S0.");
-  }
+*/
 
-  resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown
-  delay(50);              // Delay for stability
