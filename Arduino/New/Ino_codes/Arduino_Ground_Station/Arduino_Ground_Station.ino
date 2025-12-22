@@ -87,6 +87,17 @@ float x_value, y_value, previous_y, previous_x;
 char buffer[BUFFER_SIZE];
 size_t bufIndex = 0;
 
+//Lever defines 
+
+// Lever pins
+const int joyLeverPin  = 7;
+const int zeroLeverPin = 8;
+
+// Lever states
+bool joylever  = false;
+bool zerolever = false;
+
+
 bool readSerialMessage() {
   while (Serial.available()) {
     char c = Serial.read();
@@ -339,21 +350,11 @@ void resetCommandFlag() {
 }
 
 bool joyleverCheck() {
-  //check for joystick lever voltage
-  if (is flipped) {
-    return true;
-  } else {
-    return false;
-  }
+  return digitalRead(joyLeverPin) == LOW;  // flipped = LOW
 }
 
-bool zeroleverCheck(){
-    //check for zero lever voltage
-  if (is flipped) {
-    return true;
-  } else {
-    return false;
-  }
+bool zeroleverCheck() {
+  return digitalRead(zeroLeverPin) == LOW; // flipped = LOW
 }
 
 
@@ -369,7 +370,11 @@ void setup() {
   tic2.haltAndSetPosition(0);  // Set current position of tic2 to 0
   tic1.exitSafeStart();
   tic2.exitSafeStart();
-  GPSData gps = extractGPS(buffer);
+  
+  // Lever pins
+  pinMode(joyLeverPin, INPUT_PULLUP);
+  pinMode(zeroLeverPin, INPUT_PULLUP);
+
 }
 
 
@@ -447,7 +452,7 @@ void loop() {
   }
   zerolever=zeroleverCheck();
   if(zerolever){
-    SetZeroValue=1
+    SetZeroValue=1;
     SetZeroPosition();
   }
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
