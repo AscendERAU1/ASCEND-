@@ -1,0 +1,480 @@
+/*
+// Arduino_Ground_Station.ino 
+//
+// ORDER OF OPERATIONS
+//  Upload/Turn on arduino and plug into computer
+//  Type coordinates of ground station into serial montior (alternatively change values for coordinate 2)
+//  Plug in and turn on Featherweight ground station
+//  Plug in and turn on Featherweight Tracker
+//  Start C script to forward serial
+//  
+//
+// This is a script used for the Embry-Riddle Areonautical University Acsend Ground station
+// should be used for the Arduino Uno ground station, used with the Featherweight GPS Tracker
+//
+// Description:
+//  This takes in a serial message parses it into the Example Message* and extracts latitude, longitude, and altitude.
+//  It then takes those values does "Azimuth Range" calculations to get the movement of the Ground Station. Then sends
+//  the info to the third and final part of the script that moves the Ground Station to look at the Payload or GPS Sender.
+//
+// Features:
+//  Blinks a light when it receives the correct serial message (should look like Example Message*)
+//  Able to switch from automatic tracking and manual tracking with the switch of either of the labled levers
+//  Will send out serial of the received message can send serial of the received alt lat and long
+//
+//  CO-REQS (run with)
+//  Serial_Read_Send_(LINUX or WINDOWS).c
+//
+// Example Message*(Explained)
+// @ GPS_STAT 202 0000 00 00 00:17:06.570 CRC_OK  TRK GPSTrk05169 Alt 000000 lt +00.00000 ln +00.00000 Vel +0000 +000 +0000 Fix 0 #  0  0  0  0 000_00_00 000_00_00 000_00_00 000_00_00 000_00_00 CRC: 5F95
+// Start message //Placeholder //Time     //CRC check not corrupt           //Latitude   //Longitude //Velocity           //GPS Fix type      //Additional raw satellite or time data (format placeholder)
+//Length of message                 //ID of Tracker  //Altitude                                                     //Sat tracking info                                       //Check for packet
+//IMPORTANT ONES:                                                                                 || The rest is unneeded
+// @ GPS_STAT                  :TIME                              ALT        LT           LN                                                                            (END POINT DELIMINATOR)   CRC: 
+// Checking for serial will be used for featherweight
+//
+// Azimuth Range(description)
+// 
+// Azmuth_range: Calculates the distance and the altitude.
+//
+// Takes in a coorinate1, coordinate2, altitude1 and altitude2 to get the said calculated values 
+//
+// Coord1 and coord2 is formatted: Lat, Long
+
+
+*/
+
+
+
+// Library Defines
+#include <Arduino.h>
+
+//Azimuth Range defines
+#include <math.h>
+#include "Azimuth.h"
+
+//Servo Control Defines
+#include <Wire.h>
+#include <Tic.h>
+
+// Defines for GPS Parsing
+
+/* NOT USED CURRENTLY need to parse time and date to use
+typedef struct {
+  double altitude;
+  double latitude;
+  double longitude;
+  double date; 
+  double time;
+  bool valid;
+} GPSData;
+*/
+
+
+#define LIGHT 12
+#define BUFFER_SIZE 512
+
+// Struct for parsing
+typedef struct {
+  double altitude;
+  double latitude;
+  double longitude;
+  bool valid;
+} GPSData;
+
+float x_value, y_value, previous_y, previous_x;
+
+char buffer[BUFFER_SIZE];
+size_t bufIndex = 0;
+
+//Lever defines 
+
+// Lever pins
+const int joyLeverPin  = 7;
+const int zeroLeverPin = 8;
+
+// Lever states
+bool joylever  = false;
+bool zerolever = false;
+
+
+bool readSerialMessage() {
+  while (Serial.available()) {
+    char c = Serial.read();
+
+    // Prevent buffer overflow
+    if (bufIndex >= BUFFER_SIZE - 1) {
+      bufIndex = 0;
+    }
+
+    buffer[bufIndex++] = c;
+    buffer[bufIndex] = '\0';
+
+    // End of message detected
+    if (strstr(buffer, "CRC:") != NULL) {
+      return true;  // buffer now contains full message
+    }
+  }
+  return false;  // no complete message yet
+}
+
+
+/* ---------- GPS PARSER ---------- */
+GPSData extractGPS(const char *msg) {
+  GPSData gps = { 0, 0, 0, false };
+
+  // Look ONLY for GPS_STAT messages
+  if (strstr(msg, "@ GPS_STAT") != NULL) {
+
+    // Parse Alt, lat, lon
+    if (sscanf(msg, "%*[^A]Alt %lf lt %lf ln %lf", &gps.altitude, &gps.latitude, &gps.longitude) == 3) {
+      gps.valid = true;
+    }
+  }
+
+  return gps;
+}
+
+//=======================================================
+//=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
+//=======================================================
+// Define constants
+float a = 6378137.0f;             // semi-major axis (meters)
+float f = 1.0f / 298.257223563f;  // flattening
+float maxIter = 200.0f;
+
+
+// Function to do azimuth math
+AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float altitude1, float altitude2) {
+  AzimuthResult result;
+  float b = (1.0f - f) * a;
+  float tol = expf(-12.0f);
+
+  // Local variables
+  float phi_1, phi_2, U_1, U_2, L, L_2, L_1, lamda, sin_lamda, cos_lamda, cos_sigma, sin_sigma, sigma;
+  float sin_alpha, cos2_alpha, cos2sigmam, C, lamda_prev, s;
+  float sin_U1, sin_U2, cos_U1, cos_U2, test;
+
+  // Check if points are identical
+  if (coordinate1[0] == coordinate2[0] && coordinate1[1] == coordinate2[1]) {
+    result.S = 0;
+    result.ForwardAzimuth = 0;
+    result.ElevationAngle = 0;
+    return result;
+  }
+
+  // Convert degrees to radians
+  phi_1 = coordinate1[0] * PI / 180;
+  L_1 = coordinate1[1] * PI / 180;
+  phi_2 = coordinate2[0] * PI / 180;
+  L_2 = coordinate2[1] * PI / 180;
+
+  // Reduced latitude
+  U_1 = atan((1 - f) * tan(phi_1));
+  U_2 = atan((1 - f) * tan(phi_2));
+
+  L = L_2 - L_1;  // Change in longitude
+  lamda = L;
+
+  // Precompute trig terms
+  sin_U1 = sin(U_1);
+  cos_U1 = cos(U_1);
+  sin_U2 = sin(U_2);
+  cos_U2 = cos(U_2);
+
+  // Iteration loop (Vincenty's formula)
+  for (int i = 0; i < (int)maxIter; i++) {
+    sin_lamda = sin(lamda);
+    cos_lamda = cos(lamda);
+
+    float sin_sigma_term1 = cos_U2 * sin_lamda;
+    float sin_sigma_term2 = cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda;
+    sin_sigma = sqrtf(sin_sigma_term1 * sin_sigma_term1 + sin_sigma_term2 * sin_sigma_term2);
+
+    cos_sigma = sin_U1 * sin_U2 + cos_U1 * cos_U2 * cos_lamda;
+    sigma = atan2f(sin_sigma, cos_sigma);
+
+    sin_alpha = (cos_U1 * cos_U2 * sin_lamda) / sin_sigma;
+    cos2_alpha = 1 - sin_alpha * sin_alpha;
+    cos2sigmam = cos_sigma - 2 * sin_U1 * sin_U2 / cos2_alpha;
+    C = (f / 16) * cos2_alpha * (4 + f * (4 - 3 * cos2_alpha));
+
+    lamda_prev = lamda;
+    lamda = L + (1 - C) * f * sin_alpha * (sigma + C * sin_sigma * (cos2sigmam + C * cos_sigma * (-1 + 2 * cos2sigmam * cos2sigmam)));
+
+    test = fabsf(lamda - lamda_prev);
+    if (test <= tol) break;
+  }
+
+  // Compute surface distance (s)
+  float u2 = cos2_alpha * (a * a - b * b) / (b * b);
+  float A = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)));
+  float B = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+  float delta_sigma = B * sin_sigma * (cos2sigmam + B / 4 * (cos_sigma * (-1 + 2 * cos2sigmam * cos2sigmam) - B / 6 * cos2sigmam * (-3 + 4 * sin_sigma * sin_sigma) * (-3 + 4 * cos2sigmam * cos2sigmam)));
+  s = b * A * (sigma - delta_sigma);
+
+  // Store results
+  result.S = s;
+  result.ForwardAzimuth = atan2f(cos_U2 * sin_lamda, cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda) * 180 / PI;  //180/Pi = conversion to deg
+
+  // Simple elevation calculation
+  float h1, h2, place1, place2, d, delta_altitude;
+  h1 = altitude1 * .3048;
+  h2 = altitude2 * .3048;
+  place1 = pow((a + h1), 2);
+  place2 = pow((a + h2), 2);
+  d = sqrt(place1 + place2 - 2 * (a + h1) * (a + h2) * cos(sigma));
+  delta_altitude = (h2 - h1);
+  result.ElevationAngle = atan2f(delta_altitude, d) * 180 / PI;
+
+  return result;
+}
+
+//Servo control
+// Defines
+// Define Tic controllers with their addresses
+TicI2C tic1(14);  // Address for the first Tic (motor X)
+TicI2C tic2(15);  // Address for the second Tic (motor Y)
+
+// Constants for stepper motor parameters
+const long stepsPerRevolution = 45701;  // Set this to your motor's steps per 360° rotation
+int SetZeroValue = 0;
+long speedX = 0;
+long speedY = 0;
+int joyCenter = 512;
+int deadzone = 200;
+int lowerDeadzone = joyCenter - deadzone;
+int upperDeadzone = joyCenter + deadzone;
+bool servoflag = false;
+
+// Joystick pins
+const int joystickXPin = A0;
+const int joystickYPin = A1;
+
+// Joystick settings
+const int centerThreshold = 100;  // Deadzone threshold around center position
+const long maxSpeed = 20000000;   // Max speed for the motor in steps per second (adjust as necessary)
+
+// Servo Commands defines
+// Sends a "Reset command timeout" command to both Tic controllers
+void resetCommandTimeout() {
+  tic1.resetCommandTimeout();
+  tic2.resetCommandTimeout();
+}
+
+void SetZeroPosition() {
+  tic1.haltAndSetPosition(0);  // Set current position of tic1 to 0
+  tic2.haltAndSetPosition(0);  // Set current position of tic1 to 0
+  tic1.exitSafeStart();
+  tic2.exitSafeStart();
+}
+
+// Delays while resetting command timeout to avoid interruption
+void delayWhileResettingCommandTimeout(uint32_t ms) {
+  uint32_t start = millis();
+  do {
+    resetCommandTimeout();
+  } while ((uint32_t)(millis() - start) <= ms);
+}
+
+void waitForPosition(TicI2C &ticController, int32_t targetPosition) {
+  do {
+    resetCommandTimeout();
+  } while (ticController.getCurrentPosition() != targetPosition);
+}
+
+
+
+// Convert the angle to steps and set the target position for the specified motor
+void setMotorPosition(char motor, int32_t angle) {
+  int32_t steps = (angle * stepsPerRevolution) / 360;  // Convert angle to steps
+                                                       // Note that the following sets a new zero point after each movemement for testing purposes. In future, use calibration message to set zero and move from there.
+  if (motor == 'X') {
+    tic1.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
+    waitForPosition(tic1, steps);
+  } else if (motor == 'Y') {
+    tic2.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
+    waitForPosition(tic2, steps);
+  }
+}
+
+// Adjust motor speeds based on joystick input
+void controlVelocityWithJoystick() {
+  int joystickX = analogRead(joystickXPin);
+  int joystickY = analogRead(joystickYPin);
+
+  if ((joystickX >= lowerDeadzone) && (joystickX <= upperDeadzone)) {
+    speedX = 0;
+  } else if (joystickX < lowerDeadzone) {
+    speedX = -maxSpeed;
+  } else if (joystickX > upperDeadzone) {
+    speedX = maxSpeed;
+  }
+  if ((joystickY >= lowerDeadzone) && (joystickY <= upperDeadzone)) {
+    speedY = 0;
+  } else if (joystickY < lowerDeadzone) {
+    speedY = -maxSpeed;
+  } else if (joystickY > upperDeadzone) {
+    speedY = maxSpeed;
+  }
+
+
+  // Set motor speeds
+  tic1.setTargetVelocity(speedX);
+  tic2.setTargetVelocity(speedY);
+  /*
+  Serial.print("Joystick X velocity: ");
+  Serial.print(speedX);
+  Serial.println(" steps/s");
+  Serial.print("Joystick Y velocity: ");
+  Serial.print(speedY);
+  Serial.println(" steps/s");
+*/
+  // Ensure the Tic does not timeout
+  delayWhileResettingCommandTimeout(100);
+}
+
+//un needed
+volatile bool newCommandReceived = false;  // Global flag for new command
+
+//un needed
+void checkForNewCommand() {
+  if (Serial.available() > 0) {
+    newCommandReceived = true;  // Set the flag when new input is available
+  }
+}
+
+//un needed or can be changed
+void resetCommandFlag() {
+  newCommandReceived = false;  // Reset the flag
+}
+
+bool joyleverCheck() {
+  return digitalRead(joyLeverPin) == LOW;  // flipped = LOW
+}
+
+bool zeroleverCheck() {
+  return digitalRead(zeroLeverPin) == LOW; // flipped = LOW
+}
+
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);             // delay to make sure serial is established
+  pinMode(LIGHT, OUTPUT);  //Light for serial com
+
+  // DEFINE SWITCHES AND LIGHTS RESPECIVELY HERE
+
+  // Initialize Tic controllers and exit safe start mode
+  tic1.haltAndSetPosition(0);  // Set current position of tic1 to 0
+  tic2.haltAndSetPosition(0);  // Set current position of tic2 to 0
+  tic1.exitSafeStart();
+  tic2.exitSafeStart();
+  
+  // Lever pins
+  pinMode(joyLeverPin, INPUT_PULLUP);
+  pinMode(zeroLeverPin, INPUT_PULLUP);
+
+}
+
+
+void loop() {
+
+  static GPSData gps;
+  static AzimuthResult output;
+
+  // Scanning Serial
+  if (readSerialMessage()) {
+    Serial.println("Received:");
+    Serial.println(buffer);
+
+    //Parsing GPS Data
+    gps = extractGPS(buffer);
+
+    // Clear buffer for next message
+    bufIndex = 0;
+    buffer[0] = '\0';
+  }
+
+
+  // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
+  // Includes:
+  // Gps parsing, Azimuth Range
+  if (gps.valid && (gps.latitude != previous_x && gps.longitude != previous_y)) {
+    Serial.println("GPS DATA FOUND");
+    Serial.print("Altitude: ");
+    Serial.println(gps.altitude);
+    Serial.print("Latitude: ");
+    Serial.println(gps.latitude, 6);
+    Serial.print("Longitude: ");
+    Serial.println(gps.longitude, 6);
+
+    //Blink Light
+    digitalWrite(LIGHT, HIGH);
+    delay(200);
+    digitalWrite(LIGHT, LOW);
+
+    double coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
+    double coordinate2[2] = { gps.latitude, gps.longitude };
+    float altitude1 = 100.0;  //given altitude
+    float altitude2 = gps.altitude;
+
+    // Run Function to calculate it
+    output = azmuth_Range(coordinate1, coordinate2, altitude1, altitude2);
+
+    // Sets x_value and y_value
+    x_value = -(output.ForwardAzimuth);
+    y_value = -(output.ElevationAngle);
+
+    previous_y = gps.longitude;
+    previous_x = gps.latitude;
+    servoflag = true;
+
+  }  // end of gps valid if
+
+  if (servoflag && SetZeroValue == 1) {
+    int32_t xSteps = (x_value * stepsPerRevolution) / 360;  // Convert X angle to steps
+    int32_t ySteps = (y_value * stepsPerRevolution) / 360;  // Convert Y angle to steps
+
+    tic1.setTargetPosition(xSteps);  // Move X motor
+    tic2.setTargetPosition(ySteps);  // Move Y motor
+    // may need setMotorPosition();
+
+    while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
+      resetCommandTimeout();
+      if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
+    }
+  } else if (joylever) {
+    while (joylever) {
+      joylever = joyleverCheck();
+      controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
+    }
+  }
+  zerolever=zeroleverCheck();
+  if(zerolever){
+    SetZeroValue=1;
+    SetZeroPosition();
+  }
+  resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
+}
+
+// START OF REFERENCE CODE
+// SERVO CODE
+
+//SERVO CONTROL
+
+/*
+  // Handle single motor control input (e.g., X90 or Y-180)
+  else if (input.length() > 1) {
+    char motor = input.charAt(0);                // Get motor identifier ('X' or 'Y')
+    int32_t angle = input.substring(1).toInt();  // Convert the rest to an integer for angle
+
+    if (SetZeroValue == 1) {
+      setMotorPosition(motor, angle);
+    } else {
+      setMotorPosition(motor, angle);
+      SetZeroPosition();
+    }
+  }
+*/
+
