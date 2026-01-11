@@ -27,8 +27,8 @@ static const int   AZ_MAX_ITER = 200;
 
 /* =================== FUNCTION =================== */
 static inline AzimuthResult azmuth_Range(
-    const double coordinate1[2],
-    const double coordinate2[2],
+    const float coordinate1[2],
+    const float coordinate2[2],
     float altitude1,
     float altitude2)
 {
