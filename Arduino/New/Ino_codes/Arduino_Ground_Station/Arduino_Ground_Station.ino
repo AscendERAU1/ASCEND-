@@ -51,7 +51,7 @@
 
 //Azimuth Range defines
 #include <math.h>
-#include "Azimuth.h"
+#include "AzimuthFull.h"
 
 //Servo Control Defines
 #include <Wire.h>
@@ -72,20 +72,20 @@ typedef struct {
 
 
 #define LIGHT 12
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 224
 
 // Struct for parsing
 typedef struct {
-  double altitude;
-  double latitude;
-  double longitude;
+  float altitude;
+  float latitude;
+  float longitude;
   bool valid;
 } GPSData;
 
 float x_value, y_value, previous_y, previous_x;
 
 char buffer[BUFFER_SIZE];
-size_t bufIndex = 0;
+uint8_t bufIndex = 0;
 
 //Lever defines 
 
@@ -103,12 +103,10 @@ bool readSerialMessage() {
     char c = Serial.read();
 
     // Prevent buffer overflow
-    if (bufIndex >= BUFFER_SIZE - 1) {
-      bufIndex = 0;
+    if (bufIndex < BUFFER_SIZE - 1) {
+      buffer[bufIndex++] = c;
+      buffer[bufIndex] = '\0';
     }
-
-    buffer[bufIndex++] = c;
-    buffer[bufIndex] = '\0';
 
     // End of message detected
     if (strstr(buffer, "CRC:") != NULL) {
@@ -121,114 +119,27 @@ bool readSerialMessage() {
 
 /* ---------- GPS PARSER ---------- */
 GPSData extractGPS(const char *msg) {
-  GPSData gps = { 0, 0, 0, false };
+  GPSData gps = {0, 0, 0, false};
 
-  // Look ONLY for GPS_STAT messages
-  if (strstr(msg, "@ GPS_STAT") != NULL) {
+  const char *altPtr = strstr(msg, "Alt ");
+  const char *latPtr = strstr(msg, "lt ");
+  const char *lonPtr = strstr(msg, "ln ");
 
-    // Parse Alt, lat, lon
-    if (sscanf(msg, "%*[^A]Alt %lf lt %lf ln %lf", &gps.altitude, &gps.latitude, &gps.longitude) == 3) {
-      gps.valid = true;
-    }
-  }
+  if (!altPtr || !latPtr || !lonPtr) return gps;
 
+  gps.altitude  = atof(altPtr + 4);
+  gps.latitude  = atof(latPtr + 3);
+  gps.longitude = atof(lonPtr + 3);
+
+  gps.valid = true;
   return gps;
 }
 
 //=======================================================
 //=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
 //=======================================================
-// Define constants
-float a = 6378137.0f;             // semi-major axis (meters)
-float f = 1.0f / 298.257223563f;  // flattening
-float maxIter = 200.0f;
-
 
 // Function to do azimuth math
-AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float altitude1, float altitude2) {
-  AzimuthResult result;
-  float b = (1.0f - f) * a;
-  float tol = expf(-12.0f);
-
-  // Local variables
-  float phi_1, phi_2, U_1, U_2, L, L_2, L_1, lamda, sin_lamda, cos_lamda, cos_sigma, sin_sigma, sigma;
-  float sin_alpha, cos2_alpha, cos2sigmam, C, lamda_prev, s;
-  float sin_U1, sin_U2, cos_U1, cos_U2, test;
-
-  // Check if points are identical
-  if (coordinate1[0] == coordinate2[0] && coordinate1[1] == coordinate2[1]) {
-    result.S = 0;
-    result.ForwardAzimuth = 0;
-    result.ElevationAngle = 0;
-    return result;
-  }
-
-  // Convert degrees to radians
-  phi_1 = coordinate1[0] * PI / 180;
-  L_1 = coordinate1[1] * PI / 180;
-  phi_2 = coordinate2[0] * PI / 180;
-  L_2 = coordinate2[1] * PI / 180;
-
-  // Reduced latitude
-  U_1 = atan((1 - f) * tan(phi_1));
-  U_2 = atan((1 - f) * tan(phi_2));
-
-  L = L_2 - L_1;  // Change in longitude
-  lamda = L;
-
-  // Precompute trig terms
-  sin_U1 = sin(U_1);
-  cos_U1 = cos(U_1);
-  sin_U2 = sin(U_2);
-  cos_U2 = cos(U_2);
-
-  // Iteration loop (Vincenty's formula)
-  for (int i = 0; i < (int)maxIter; i++) {
-    sin_lamda = sin(lamda);
-    cos_lamda = cos(lamda);
-
-    float sin_sigma_term1 = cos_U2 * sin_lamda;
-    float sin_sigma_term2 = cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda;
-    sin_sigma = sqrtf(sin_sigma_term1 * sin_sigma_term1 + sin_sigma_term2 * sin_sigma_term2);
-
-    cos_sigma = sin_U1 * sin_U2 + cos_U1 * cos_U2 * cos_lamda;
-    sigma = atan2f(sin_sigma, cos_sigma);
-
-    sin_alpha = (cos_U1 * cos_U2 * sin_lamda) / sin_sigma;
-    cos2_alpha = 1 - sin_alpha * sin_alpha;
-    cos2sigmam = cos_sigma - 2 * sin_U1 * sin_U2 / cos2_alpha;
-    C = (f / 16) * cos2_alpha * (4 + f * (4 - 3 * cos2_alpha));
-
-    lamda_prev = lamda;
-    lamda = L + (1 - C) * f * sin_alpha * (sigma + C * sin_sigma * (cos2sigmam + C * cos_sigma * (-1 + 2 * cos2sigmam * cos2sigmam)));
-
-    test = fabsf(lamda - lamda_prev);
-    if (test <= tol) break;
-  }
-
-  // Compute surface distance (s)
-  float u2 = cos2_alpha * (a * a - b * b) / (b * b);
-  float A = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)));
-  float B = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
-  float delta_sigma = B * sin_sigma * (cos2sigmam + B / 4 * (cos_sigma * (-1 + 2 * cos2sigmam * cos2sigmam) - B / 6 * cos2sigmam * (-3 + 4 * sin_sigma * sin_sigma) * (-3 + 4 * cos2sigmam * cos2sigmam)));
-  s = b * A * (sigma - delta_sigma);
-
-  // Store results
-  result.S = s;
-  result.ForwardAzimuth = atan2f(cos_U2 * sin_lamda, cos_U1 * sin_U2 - sin_U1 * cos_U2 * cos_lamda) * 180 / PI;  //180/Pi = conversion to deg
-
-  // Simple elevation calculation
-  float h1, h2, place1, place2, d, delta_altitude;
-  h1 = altitude1 * .3048;
-  h2 = altitude2 * .3048;
-  place1 = pow((a + h1), 2);
-  place2 = pow((a + h2), 2);
-  d = sqrt(place1 + place2 - 2 * (a + h1) * (a + h2) * cos(sigma));
-  delta_altitude = (h2 - h1);
-  result.ElevationAngle = atan2f(delta_altitude, d) * 180 / PI;
-
-  return result;
-}
 
 //Servo control
 // Defines
@@ -284,7 +195,6 @@ void waitForPosition(TicI2C &ticController, int32_t targetPosition) {
 }
 
 
-
 // Convert the angle to steps and set the target position for the specified motor
 void setMotorPosition(char motor, int32_t angle) {
   int32_t steps = (angle * stepsPerRevolution) / 360;  // Convert angle to steps
@@ -334,20 +244,6 @@ void controlVelocityWithJoystick() {
   delayWhileResettingCommandTimeout(100);
 }
 
-//un needed
-volatile bool newCommandReceived = false;  // Global flag for new command
-
-//un needed
-void checkForNewCommand() {
-  if (Serial.available() > 0) {
-    newCommandReceived = true;  // Set the flag when new input is available
-  }
-}
-
-//un needed or can be changed
-void resetCommandFlag() {
-  newCommandReceived = false;  // Reset the flag
-}
 
 bool joyleverCheck() {
   return digitalRead(joyLeverPin) == LOW;  // flipped = LOW
@@ -377,6 +273,20 @@ void setup() {
 
 }
 
+/* If ram is a problem here is a ram monitor
+
+extern int __heap_start, *__brkval;
+int freeRam() {
+  int v;
+  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
+}
+
+//How to call
+Serial.print(F("Free RAM: "));
+Serial.println(freeRam());
+
+*/
+
 
 void loop() {
 
@@ -403,6 +313,9 @@ void loop() {
   if (gps.valid && (gps.latitude != previous_x && gps.longitude != previous_y)) {
     Serial.println("GPS DATA FOUND");
     Serial.print("Altitude: ");
+    /*IF RAM IS A PROBLEM 
+    Serial.println(F("Your message (this will work with print normal and the vars)"))
+    */
     Serial.println(gps.altitude);
     Serial.print("Latitude: ");
     Serial.println(gps.latitude, 6);
@@ -414,8 +327,8 @@ void loop() {
     delay(200);
     digitalWrite(LIGHT, LOW);
 
-    double coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
-    double coordinate2[2] = { gps.latitude, gps.longitude };
+    float coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
+    float coordinate2[2] = { gps.latitude, gps.longitude };
     float altitude1 = 100.0;  //given altitude
     float altitude2 = gps.altitude;
 
@@ -442,6 +355,13 @@ void loop() {
 
     while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
       resetCommandTimeout();
+
+      /* if not enough ram replace above while with 
+      uint32_t start = millis();
+      while ((tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) && millis() - start < 3000) {
+        resetCommandTimeout();
+      }
+      */
       if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
     }
   } else if (joylever) {
@@ -457,24 +377,3 @@ void loop() {
   }
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
-
-// START OF REFERENCE CODE
-// SERVO CODE
-
-//SERVO CONTROL
-
-/*
-  // Handle single motor control input (e.g., X90 or Y-180)
-  else if (input.length() > 1) {
-    char motor = input.charAt(0);                // Get motor identifier ('X' or 'Y')
-    int32_t angle = input.substring(1).toInt();  // Convert the rest to an integer for angle
-
-    if (SetZeroValue == 1) {
-      setMotorPosition(motor, angle);
-    } else {
-      setMotorPosition(motor, angle);
-      SetZeroPosition();
-    }
-  }
-*/
-

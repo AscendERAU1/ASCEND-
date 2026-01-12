@@ -1,5 +1,9 @@
 /* Azimuth.h
 //
+//
+// CURRENTLY UNUSED PLEASE REFER TO AZIMUTH FULL WHITCH IS USED
+//
+//
 // Used for decleration of the azimuth struct and function
 // Used in Arduino_Ground_Station.ino
 */
