@@ -82,7 +82,7 @@ typedef struct {
   bool valid;
 } GPSData;
 
-float x_value, y_value, previous_y, previous_x;
+float x_value, y_value, previous_y = 0, previous_x = 0;
 
 char buffer[BUFFER_SIZE];
 uint8_t bufIndex = 0;
@@ -110,6 +110,8 @@ bool readSerialMessage() {
 
     // End of message detected
     if (strstr(buffer, "CRC:") != NULL) {
+
+      Serial.println("1");
       return true;  // buffer now contains full message
     }
   }
@@ -120,6 +122,12 @@ bool readSerialMessage() {
 /* ---------- GPS PARSER ---------- */
 GPSData extractGPS(const char *msg) {
   GPSData gps = {0, 0, 0, false};
+
+  //Checking for bad input
+  if (strstr(msg, "CRC_ERR") != NULL) {
+    Serial.print("Invalid");
+    return gps;  // invalid packet → terminate immediately
+  }
 
   const char *altPtr = strstr(msg, "Alt ");
   const char *latPtr = strstr(msg, "lt ");
@@ -134,12 +142,6 @@ GPSData extractGPS(const char *msg) {
   gps.valid = true;
   return gps;
 }
-
-//=======================================================
-//=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
-//=======================================================
-
-// Function to do azimuth math
 
 //Servo control
 // Defines
@@ -256,11 +258,12 @@ bool zeroleverCheck() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting... \n");
+  Serial.println(F("Starting... \n"));
+
+  Wire.begin();
+
   delay(1000);             // delay to make sure serial is established
-  Serial.println("past delay");
   pinMode(LIGHT, OUTPUT);  //Light for serial com
-    Serial.println("light initalized");
 
   // DEFINE SWITCHES AND LIGHTS RESPECIVELY HERE
 
@@ -269,11 +272,11 @@ void setup() {
   tic2.haltAndSetPosition(0);  // Set current position of tic2 to 0
   tic1.exitSafeStart();
   tic2.exitSafeStart();
-    Serial.println("tic initiated");
+    Serial.println(F("tic initiated"));
   
   // Lever pins
   pinMode(joyLeverPin, INPUT_PULLUP);
-    Serial.println("joy pin started");
+    Serial.println(F("joy pin started"));
   pinMode(zeroLeverPin, INPUT_PULLUP);
 
 }
@@ -294,13 +297,12 @@ Serial.println(freeRam());
 
 
 void loop() {
-  Serial.println("made to loop");
   static GPSData gps;
   static AzimuthResult output;
 
   // Scanning Serial
   if (readSerialMessage()) {
-    Serial.println("Received:");
+    Serial.println(F("Received:"));
     Serial.println(buffer);
 
     //Parsing GPS Data
@@ -311,20 +313,19 @@ void loop() {
     buffer[0] = '\0';
   }
 
-
   // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
   // Includes:
   // Gps parsing, Azimuth Range
   if (gps.valid && (gps.latitude != previous_x && gps.longitude != previous_y)) {
-    Serial.println("GPS DATA FOUND");
-    Serial.print("Altitude: ");
+    Serial.println(F("GPS DATA FOUND"));
+    Serial.print(F("Altitude: "));
     /*IF RAM IS A PROBLEM 
     Serial.println(F("Your message (this will work with print normal and the vars)"))
     */
     Serial.println(gps.altitude);
-    Serial.print("Latitude: ");
+    Serial.print(F("Latitude: "));
     Serial.println(gps.latitude, 6);
-    Serial.print("Longitude: ");
+    Serial.print(F("Longitude: "));
     Serial.println(gps.longitude, 6);
 
     //Blink Light
@@ -358,15 +359,16 @@ void loop() {
     tic2.setTargetPosition(ySteps);  // Move Y motor
     // may need setMotorPosition();
 
+    //if not work
+    /*
     while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
       resetCommandTimeout();
-
-      /* if not enough ram replace above while with 
+    */
+      // if not enough ram replace above while with 
       uint32_t start = millis();
       while ((tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) && millis() - start < 3000) {
         resetCommandTimeout();
-      }
-      */
+
       if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
     }
   } else if (joylever) {

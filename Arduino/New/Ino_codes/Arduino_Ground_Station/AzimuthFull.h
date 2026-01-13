@@ -1,5 +1,9 @@
 /* Azimuth.h
 //
+//=======================================================
+//=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
+//=======================================================
+//
 // Used for decleration of the azimuth struct and function
 // Used in Arduino_Ground_Station.ino
 //
