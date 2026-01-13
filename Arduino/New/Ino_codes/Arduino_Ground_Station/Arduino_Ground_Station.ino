@@ -256,8 +256,11 @@ bool zeroleverCheck() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Starting... \n");
   delay(1000);             // delay to make sure serial is established
+  Serial.println("past delay");
   pinMode(LIGHT, OUTPUT);  //Light for serial com
+    Serial.println("light initalized");
 
   // DEFINE SWITCHES AND LIGHTS RESPECIVELY HERE
 
@@ -266,9 +269,11 @@ void setup() {
   tic2.haltAndSetPosition(0);  // Set current position of tic2 to 0
   tic1.exitSafeStart();
   tic2.exitSafeStart();
+    Serial.println("tic initiated");
   
   // Lever pins
   pinMode(joyLeverPin, INPUT_PULLUP);
+    Serial.println("joy pin started");
   pinMode(zeroLeverPin, INPUT_PULLUP);
 
 }
@@ -289,7 +294,7 @@ Serial.println(freeRam());
 
 
 void loop() {
-
+  Serial.println("made to loop");
   static GPSData gps;
   static AzimuthResult output;
 
@@ -370,6 +375,7 @@ void loop() {
       controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
     }
   }
+  joylever = joyleverCheck();
   zerolever=zeroleverCheck();
   if(zerolever){
     SetZeroValue=1;
