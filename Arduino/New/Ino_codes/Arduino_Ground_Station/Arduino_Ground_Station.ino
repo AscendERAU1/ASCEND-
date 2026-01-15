@@ -72,7 +72,7 @@ typedef struct {
 
 
 #define LIGHT 12
-#define BUFFER_SIZE 224
+#define BUFFER_SIZE 350
 
 // Struct for parsing
 typedef struct {
@@ -82,10 +82,14 @@ typedef struct {
   bool valid;
 } GPSData;
 
-float x_value, y_value, previous_y = 0, previous_x = 0;
+float x_value, y_value, previous_y = 0.0 , previous_x = 0.0 ;
 
 char buffer[BUFFER_SIZE];
 uint8_t bufIndex = 0;
+
+bool motorMoving = false;
+int32_t targetX = 0;
+int32_t targetY = 0;
 
 //Lever defines 
 
@@ -110,8 +114,8 @@ bool readSerialMessage() {
 
     // End of message detected
     if (strstr(buffer, "CRC:") != NULL) {
+            Serial.println("u");
 
-      Serial.println("1");
       return true;  // buffer now contains full message
     }
   }
@@ -123,11 +127,11 @@ bool readSerialMessage() {
 GPSData extractGPS(const char *msg) {
   GPSData gps = {0, 0, 0, false};
 
-  //Checking for bad input
+  /*//Checking for bad input
   if (strstr(msg, "CRC_ERR") != NULL) {
     Serial.print("Invalid");
     return gps;  // invalid packet → terminate immediately
-  }
+  }*/
 
   const char *altPtr = strstr(msg, "Alt ");
   const char *latPtr = strstr(msg, "lt ");
@@ -310,7 +314,9 @@ void loop() {
 
     // Clear buffer for next message
     bufIndex = 0;
-    buffer[0] = '\0';
+    memset(buffer, 0, BUFFER_SIZE);
+  } else {
+    gps.valid = false;
   }
 
   // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
@@ -351,26 +357,16 @@ void loop() {
 
   }  // end of gps valid if
 
-  if (servoflag && SetZeroValue == 1) {
-    int32_t xSteps = (x_value * stepsPerRevolution) / 360;  // Convert X angle to steps
-    int32_t ySteps = (y_value * stepsPerRevolution) / 360;  // Convert Y angle to steps
+if (servoflag && SetZeroValue == 1 && !motorMoving) {
 
-    tic1.setTargetPosition(xSteps);  // Move X motor
-    tic2.setTargetPosition(ySteps);  // Move Y motor
-    // may need setMotorPosition();
+  targetX = (x_value * stepsPerRevolution) / 360;
+  targetY = (y_value * stepsPerRevolution) / 360;
 
-    //if not work
-    /*
-    while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
-      resetCommandTimeout();
-    */
-      // if not enough ram replace above while with 
-      uint32_t start = millis();
-      while ((tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) && millis() - start < 3000) {
-        resetCommandTimeout();
+  tic1.setTargetPosition(targetX);
+  tic2.setTargetPosition(targetY);
 
-      if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
-    }
+  motorMoving = true;   // start movement
+
   } else if (joylever) {
     while (joylever) {
       joylever = joyleverCheck();
@@ -382,6 +378,16 @@ void loop() {
   if(zerolever){
     SetZeroValue=1;
     SetZeroPosition();
+  }
+
+  if (motorMoving) {
+  resetCommandTimeout();   // REQUIRED for Tic
+
+  if (tic1.getCurrentPosition() == targetX && tic2.getCurrentPosition() == targetY) {
+
+    motorMoving = false;   // movement finished
+    servoflag = false;     // ready for next GPS update
+    }
   }
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
