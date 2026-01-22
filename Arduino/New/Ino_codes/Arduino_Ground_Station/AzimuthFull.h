@@ -129,6 +129,11 @@ static inline AzimuthResult azmuth_Range(
   /* ---- Elevation angle ---- */
   float h1 = altitude1 * 0.3048f;
   float h2 = altitude2 * 0.3048f;
+  float delta_h = h2 - h1;
+
+  result.ElevationAngle =
+    atan2f(delta_h, s) * 180.0f / PI;
+  /*
   float d = sqrtf(
     (AZ_A + h1) * (AZ_A + h1) +
     (AZ_A + h2) * (AZ_A + h2) -
@@ -137,6 +142,7 @@ static inline AzimuthResult azmuth_Range(
 
   result.ElevationAngle =
     atan2f(h2 - h1, d) * 180.0f / PI;
+*/
 
   return result;
 }

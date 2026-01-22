@@ -89,16 +89,16 @@ uint8_t bufIndex = 0;
 
 int32_t xSteps = 0;
 int32_t ySteps = 0;
-bool autoTrackEnabled;
+
+enum ControlMode { MANUAL, AUTO };
+ControlMode controlMode = MANUAL;
 
   //Lever defines
 
   // Lever pins
-  const int joyLeverPin = 7;
+const int joyLeverPin = 7;
 const int zeroLeverPin = 8;
-
-// Currently un needed debugpin
-//const int debugPin = 4;
+const int debugPin = 4;
 
 // Lever states
 bool joylever = false;
@@ -205,15 +205,13 @@ void waitForPosition(TicI2C &ticController, int32_t targetPosition) {
 
 
 // Convert the angle to steps and set the target position for the specified motor
-void setMotorPosition(char motor, int32_t angle) {
-  int32_t steps = (angle * stepsPerRevolution) / 360;  // Convert angle to steps
+void setMotorPosition(char motor, float angle) {
+  int32_t steps = round(angle * stepsPerRevolution) / 360;  // Convert angle to steps
                                                        // Note that the following sets a new zero point after each movemement for testing purposes. In future, use calibration message to set zero and move from there.
   if (motor == 'X') {
     tic1.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
-    waitForPosition(tic1, steps);
   } else if (motor == 'Y') {
     tic2.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
-    waitForPosition(tic2, steps);
   }
 }
 
@@ -241,14 +239,14 @@ void controlVelocityWithJoystick() {
   // Set motor speeds
   tic1.setTargetVelocity(speedX);
   tic2.setTargetVelocity(speedY);
-  /*
+/*
   Serial.print("Joystick X velocity: ");
   Serial.print(speedX);
   Serial.println(" steps/s");
   Serial.print("Joystick Y velocity: ");
   Serial.print(speedY);
   Serial.println(" steps/s");
-*/
+  */
   // Ensure the Tic does not timeout
   delayWhileResettingCommandTimeout(100);
 }
@@ -262,11 +260,10 @@ bool zeroleverCheck() {
   return digitalRead(zeroLeverPin) == LOW;  // flipped = LOW
 }
 
-/* Currently un needed debug check
 bool debugpincheck(){
   return digitalRead(debugPin) == LOW; // flipped = low
 }
-*/
+
 
 void setup() {
   Serial.begin(115200);
@@ -291,11 +288,8 @@ void setup() {
   Serial.println(F("joy pin started"));
   pinMode(zeroLeverPin, INPUT_PULLUP);
   Serial.println(F("zero pin started"));
-
-  /* debug mode currently un needed
   pinMode(debugPin, INPUT_PULLUP);
   Serial.println(F("debug pin started"));
-  */
 }
 
 /* If ram is a problem here is a ram monitor
@@ -351,7 +345,7 @@ void loop() {
     digitalWrite(LIGHT, HIGH);
     digitalWrite(LIGHT, LOW);
 
-    float coordinate1[2] = { 34.0522, -118.2437 };  // Given Coords
+    float coordinate1[2] = { 34.61455, -112.45033 };  // Given Coords
     float coordinate2[2] = { gps.latitude, gps.longitude };
     float altitude1 = 100.0;  //given altitude
     float altitude2 = gps.altitude;
@@ -365,44 +359,32 @@ void loop() {
 
     previous_y = gps.longitude;
     previous_x = gps.latitude;
-    xSteps = (x_value * stepsPerRevolution) / 360;  // Convert X angle to steps
-    ySteps = (y_value * stepsPerRevolution) / 360;  // Convert Y angle to steps
-
 
   }  // end of gps valid if
 
-  if (!autoTrackEnabled && joylever) {
-    controlVelocityWithJoystick();  // Adjust motor speeds based on joystick input
-  }
-
+  // checking states of lever
   joylever = joyleverCheck();
   zerolever = zeroleverCheck();
 
+  if (joylever && controlMode== AUTO){
+    controlMode= MANUAL;
+  }
+
+  //checking zero lever state
   if (zerolever && !lastZeroLever) {
     SetZeroPosition();
-    autoTrackEnabled = true;
+    controlMode = AUTO;
   }
-  lastZeroLever = zerolever;
 
+  lastZeroLever=zerolever;
 
-  if (autoTrackEnabled && gps.valid) {
+  if (controlMode== MANUAL && joylever){
+    controlVelocityWithJoystick();
+  }
 
-    tic1.setTargetPosition(xSteps);  // Move X motor
-    tic2.setTargetPosition(ySteps);  // Move Y motor
-
-    // may need setMotorPosition();
-    /*
-    while (tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) {
-      resetCommandTimeout();
-
-      /* if not enough ram replace above while with 
-      uint32_t start = millis();
-      while ((tic1.getCurrentPosition() != xSteps || tic2.getCurrentPosition() != ySteps) && millis() - start < 3000) {
-        resetCommandTimeout();
-      }
-      if (readSerialMessage()) return;  // Check for new input during motor movement and interrupt if new command is detected
-    }
-    */
+  if (controlMode== AUTO && gps.valid) {
+    setMotorPosition('X', -x_value);  // Move X motor
+    setMotorPosition('Y', y_value);  // Move Y motor
 
   }
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
