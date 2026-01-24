@@ -345,7 +345,7 @@ void loop() {
     digitalWrite(LIGHT, HIGH);
     digitalWrite(LIGHT, LOW);
 
-    float coordinate1[2] = { 34.61455, -112.45033 };  // Given Coords
+    float coordinate1[2] = { 34.8840, -112.0330 };  // Given Coords
     float coordinate2[2] = { gps.latitude, gps.longitude };
     float altitude1 = 100.0;  //given altitude
     float altitude2 = gps.altitude;
@@ -355,7 +355,7 @@ void loop() {
 
     // Sets x_value and y_value
     x_value = -(output.ForwardAzimuth);
-    y_value = -(output.ElevationAngle);
+    y_value = (output.ElevationAngle);
 
     previous_y = gps.longitude;
     previous_x = gps.latitude;
@@ -383,7 +383,7 @@ void loop() {
   }
 
   if (controlMode== AUTO && gps.valid) {
-    setMotorPosition('X', -x_value);  // Move X motor
+    setMotorPosition('X', x_value);  // Move X motor
     setMotorPosition('Y', y_value);  // Move Y motor
 
   }
