@@ -4,9 +4,9 @@
 
 This is a repo for ERAU ASCEND! Ground station team and should be under the organization of AscendERAU1
 
-Editing: Arduino (New), Ground station mini
+Editing: Ground station mini
 
-Currently working: None
+Currently working: Arduino (New)
 
 Archive: None
 
