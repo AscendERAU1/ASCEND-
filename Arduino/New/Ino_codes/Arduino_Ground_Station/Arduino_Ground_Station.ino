@@ -206,7 +206,7 @@ void waitForPosition(TicI2C &ticController, int32_t targetPosition) {
 
 // Convert the angle to steps and set the target position for the specified motor
 void setMotorPosition(char motor, float angle) {
-  int32_t steps = round(angle * stepsPerRevolution) / 360;  // Convert angle to steps
+  int32_t steps = round((angle * stepsPerRevolution) / 360);  // Convert angle to steps
                                                        // Note that the following sets a new zero point after each movemement for testing purposes. In future, use calibration message to set zero and move from there.
   if (motor == 'X') {
     tic1.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
@@ -267,7 +267,7 @@ bool debugpincheck(){
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(F("Starting... \n"));
+  Serial.println(F("\nStarting... \n"));
 
   Wire.begin();
 
@@ -345,7 +345,7 @@ void loop() {
     digitalWrite(LIGHT, HIGH);
     digitalWrite(LIGHT, LOW);
 
-    float coordinate1[2] = { 34.8840, -112.0330 };  // Given Coords
+    float coordinate1[2] = { 34.61455796253662, -112.45035709722825 };  // Given Coords
     float coordinate2[2] = { gps.latitude, gps.longitude };
     float altitude1 = 100.0;  //given altitude
     float altitude2 = gps.altitude;
@@ -383,8 +383,9 @@ void loop() {
   }
 
   if (controlMode== AUTO && gps.valid) {
+
     setMotorPosition('X', x_value);  // Move X motor
-    setMotorPosition('Y', y_value);  // Move Y motor
+    setMotorPosition('Y', -y_value);  // Move Y motor
 
   }
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
