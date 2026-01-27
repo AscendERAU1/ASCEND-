@@ -1,11 +1,18 @@
 /* Azimuth.h
 //
+//=======================================================
+//=++++++++++++++++++ Azimuth Range +++++++++++++++++++++
+//=======================================================
+//
 // Used for decleration of the azimuth struct and function
 // Used in Arduino_Ground_Station.ino
 //
 // If used remove the math from the main ino 
 // 
 // This is different from the Azimuth.ino as it is the whole math included
+//
+// Altitude is expected in Feet
+//
 */
 #ifndef AZIMUTH_H
 #define AZIMUTH_H
@@ -44,6 +51,10 @@ static inline AzimuthResult azmuth_Range(
   float sin_alpha, cos2_alpha, cos2sigmam;
   float C, lamda_prev, s;
   float sin_U1, sin_U2, cos_U1, cos_U2;
+
+  float h1 = altitude1 * 0.3048f;
+  float h2 = altitude2 * 0.3048f;
+
 
   /* ---- Identical points check ---- */
   if (coordinate1[0] == coordinate2[0] &&
@@ -123,17 +134,16 @@ static inline AzimuthResult azmuth_Range(
     * 180.0f / PI;
 
   /* ---- Elevation angle ---- */
-  float h1 = altitude1 * 0.3048f;
-  float h2 = altitude2 * 0.3048f;
-  float d = sqrtf(
-    (AZ_A + h1) * (AZ_A + h1) +
-    (AZ_A + h2) * (AZ_A + h2) -
-    2 * (AZ_A + h1) * (AZ_A + h2) * cos(sigma)
-  );
+  float d = result.S;
 
   result.ElevationAngle =
-    atan2f(h2 - h1, d) * 180.0f / PI;
+  atan2f(h2 - h1, d) * 180.0f / PI;
 
+  /*
+  float d = sqrtf((AZ_A + h1) * (AZ_A + h1) + (AZ_A + h2) * (AZ_A + h2) - 2 * (AZ_A + h1) * (AZ_A + h2) * cos(sigma) );
+  result.ElevationAngle =
+    atan2f(h2 - h1, d) * 180.0f / PI;
+*/
   return result;
 }
 

@@ -121,8 +121,8 @@ AzimuthResult azmuth_Range(double coordinate1[2], double coordinate2[2], float a
 int main() {
     
     // Input Coords (will be changed to output of featherweight/ GPS)
-    double coordinate1[2] = {34.0522, -118.2437};
-    double coordinate2[2] = {34.06, -118.3};
+    double coordinate1[2] = {34.61456565659307, -112.45035308321987};
+    double coordinate2[2] = {34.61510371749498, -112.4509404869798};
     float altitude1 = 100.0;
     float altitude2 = 2000.0;
     float x_value, y_value, previous_y;
