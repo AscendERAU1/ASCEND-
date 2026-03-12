@@ -1,17 +1,14 @@
-// this was the original
-
-
-// this is a different one that could be used
 #define LIGHT 12
 #include <SoftwareSerial.h>
 
-SoftwareSerial rfd(-1, 9); // RX disabled, TX only
+SoftwareSerial rfd(-1, 9);
 
 void setup() {
   pinMode(LIGHT, OUTPUT);
   delay(2000);
+  Serial.begin(9600);
   Serial.println("RFD900 transmitter online");
-  rfd.begin(57600); // must match radio config
+  rfd.begin(9600);
 }
 
 void loop() {
