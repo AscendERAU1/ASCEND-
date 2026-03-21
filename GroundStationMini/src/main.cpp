@@ -1,6 +1,3 @@
-// This example shows how to send serial commands to two Tic
-// Stepper Motor Controllers on the same serial bus.
-//
 // Each Tic's control mode must be set to "Serial/I2C/USB".  The
 // serial device number of one Tic must be set to its default
 // value of 14, and the serial device number of another Tic must
@@ -16,6 +13,7 @@
 
 #include <Tic.h>
 #include <math.h>
+#include <string.h>
 
 // On boards with a hardware serial port available for use, use
 // that port to communicate with the Tic. For other boards,
@@ -30,6 +28,8 @@ SoftwareSerial ticSerial(10, 11);
 
 #define MAXSPEED 3000 // in steps per second
 #define EARTH_RADIUS 6371000 // in meters
+#define MAX_Pitch 90 // in degrees
+#define MIN_Pitch 0 // in degrees
 
 TicSerial yawStepper(ticSerial, 14);
 TicSerial pitchStepper(ticSerial, 15);
@@ -40,15 +40,16 @@ TicSerial pitchStepper(ticSerial, 15);
 
 //Max speed is 3000 steps per second, to move 100000 steps, it will take 100000/3000 = 33.3 seconds, so we set the speed to 30000000 microsteps per 10000 seconds, which is 3000 steps per second.
 
-void setup()
-{
-  Serial.begin(9600);
-  ticSerial.begin(9600);
-  delay(20);
+// Create an empty "bucket" to hold our incoming letters
+//Coordinates of the Ground Station Mini
+double gs_longitude = -112.45421 * PI / 180; // in radians
+double gs_latitude = 34.61292 * PI / 180; // in radians
+double gs_height = 1576.5993; // in meters
 
-  yawStepper.exitSafeStart();
-  pitchStepper.exitSafeStart();
-}
+//Coordinates of the Payload (initially set to the same as the Ground Station Mini, will be updated by the GPS data)
+double pay_longitude = gs_longitude; // in radians
+double pay_latitude = gs_latitude; // in radians
+double pay_height = gs_height; // in meters
 
 void resetCommandTimeout()
 {
@@ -105,7 +106,6 @@ double calculate_elevation(double long1, double long2, double lat1, double lat2,
   double dlong = long2 - long1;
   double a = sin(dlat / 2) * sin(dlat / 2) + cos(lat1) * cos(lat2) * sin(dlong / 2) * sin(dlong / 2);
   double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  double d = EARTH_RADIUS * c;
   double r1 = EARTH_RADIUS + h1;
   double r2 = EARTH_RADIUS + h2;
   // Calculate the elevation angle (this is a simplified version and may need adjustment based on the specific application)
@@ -113,7 +113,103 @@ double calculate_elevation(double long1, double long2, double lat1, double lat2,
   return elevation;
 }
 
-void loop()
+
+void setup()
 {
+  //Actual Setup
+  Serial.begin(9600);
+  // THE FIX: Stop parseInt from freezing the Arduino!
+  Serial.setTimeout(200);
+
+  ticSerial.begin(9600);
+  delay(20);
+
+  yawStepper.exitSafeStart();
+  pitchStepper.exitSafeStart();
+
+  //Ask user for new payload coordinates
+
+  // --- LONGITUDE ---
+  Serial.print("Longitude:");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      double pay_longitude_deg = Serial.parseFloat();
+      pay_longitude = pay_longitude_deg * PI / 180;
+      Serial.println("Received longitude: " + String(pay_longitude_deg) + " degrees");
+      
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); // Wait a tiny split second to ensure all characters arrived
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      
+      break; // Now break safely with an empty buffer!
+    }else{
+      delay(100); 
+    }
+  }
+
+  // --- LATITUDE ---
+  Serial.print("Latitude:");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      double pay_latitude_deg = Serial.parseFloat();
+      pay_latitude = pay_latitude_deg * PI / 180;
+      Serial.println("Received latitude: " + String(pay_latitude_deg) + " degrees");
+      
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      
+      break;
+    }else{
+      delay(100);
+    }
+  }
+
+  // --- HEIGHT ---
+  Serial.print("Height:");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      double pay_height_deg = Serial.parseFloat();
+      pay_height = pay_height_deg;
+      Serial.println("Received height: " + String(pay_height_deg) + " meters");
+      
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      
+      break;
+    }else{
+      delay(100);
+    }
+  }
   
+  // Print the calculated azimuth and elevation to the serial monitor for verification
+  Serial.println("Azimuth: " + String(calculate_azimuth(gs_longitude, pay_longitude, gs_latitude, pay_latitude) * 180 / PI) + " degrees");
+  Serial.println("Elevation: " + String(calculate_elevation(gs_longitude, pay_longitude, gs_latitude, pay_latitude, gs_height, pay_height) * 180 / PI) + " degrees");
+}
+
+void loop() {
+  double azimuth = calculate_azimuth(gs_longitude, pay_longitude, gs_latitude, pay_latitude);
+  double elevation = calculate_elevation(gs_longitude, pay_longitude, gs_latitude, pay_latitude, gs_height, pay_height);
+  //make sure the elevation is between the minimum and maximum pitch angles
+  if(elevation < MIN_Pitch * PI / 180){
+    elevation = MIN_Pitch * PI / 180;
+  }
+  else if(elevation > MAX_Pitch * PI / 180){
+    elevation = MAX_Pitch * PI / 180;
+  }
+  //set the target position of the yaw and pitch steppers based on the calculated azimuth and elevation
+  resetCommandTimeout();
+  yawStepper.setTargetPosition(azimuth * 100000 / (2 * PI));
+  pitchStepper.setTargetPosition(elevation * 100000 / (2 * PI));
+  Serial.println("Set yaw to " + String(azimuth * 180 / PI) + " degrees and pitch to " + String(elevation * 180 / PI) + " degrees.");
 }
