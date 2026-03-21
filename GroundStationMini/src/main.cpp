@@ -113,21 +113,8 @@ double calculate_elevation(double long1, double long2, double lat1, double lat2,
   return elevation;
 }
 
-
-void setup()
-{
-  //Actual Setup
-  Serial.begin(9600);
-  // THE FIX: Stop parseInt from freezing the Arduino!
-  Serial.setTimeout(200);
-
-  ticSerial.begin(9600);
-  delay(20);
-
-  yawStepper.exitSafeStart();
-  pitchStepper.exitSafeStart();
-
-  //Ask user for new payload coordinates
+void testing_az_el_calculations(){
+//Ask user for new payload coordinates
 
   // --- LONGITUDE ---
   Serial.print("Longitude:");
@@ -195,6 +182,133 @@ void setup()
   // Print the calculated azimuth and elevation to the serial monitor for verification
   Serial.println("Azimuth: " + String(calculate_azimuth(gs_longitude, pay_longitude, gs_latitude, pay_latitude) * 180 / PI) + " degrees");
   Serial.println("Elevation: " + String(calculate_elevation(gs_longitude, pay_longitude, gs_latitude, pay_latitude, gs_height, pay_height) * 180 / PI) + " degrees");
+}
+
+void move_to_az_el(){
+  double azimuth_deg = 0;
+  double elevation_deg = 0;
+  double azimuth_rad = 0;
+  double elevation_rad = 0;
+
+  Serial.print("Set yaw to: ");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      azimuth_deg = Serial.parseFloat();
+      azimuth_rad = azimuth_deg * PI / 180;
+      yawStepper.setTargetPosition(azimuth_rad * 100000 / (2 * PI));
+      Serial.println("Received yaw: " + String(azimuth_deg) + " degrees");
+      
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      
+      break; // Now break safely with an empty buffer!
+    }
+  }
+  Serial.print("Set pitch to: ");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      elevation_deg = Serial.parseFloat();
+      elevation_rad = elevation_deg * PI / 180;
+      pitchStepper.setTargetPosition(elevation_rad * 100000 / (2 * PI));
+      Serial.println("Received pitch: " + String(elevation_deg) + " degrees");
+      
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      
+      break; // Now break safely with an empty buffer!
+    }
+
+  }
+}
+
+void setup()
+{
+  //Actual Setup
+  Serial.begin(9600);
+  // THE FIX: Stop parseInt from freezing the Arduino!
+  Serial.setTimeout(200);
+
+  ticSerial.begin(9600);
+  delay(20);
+
+  yawStepper.exitSafeStart();
+  pitchStepper.exitSafeStart();
+
+  //Recenter both stepper motors to the initial position (pointing straight up)
+  yawStepper.setTargetPosition(0);
+  pitchStepper.setTargetPosition(0);
+  delayWhileResettingCommandTimeout(5000); // Wait for the motors to move to the
+
+  char response;
+  do{
+    Serial.print("Would you like to calibrate the azimuth and elevation by manually adjusting the yaw and pitch? (y/n): ");
+    while(true){
+      resetCommandTimeout();
+      if(Serial.available() > 0){
+        response = Serial.read();
+        // THE FIX: Vacuum up the leftover 'Enter' key characters
+        delay(10); 
+        while(Serial.available() > 0) { 
+          Serial.read(); 
+        }
+        if(response == 'y' || response == 'Y'){
+          move_to_az_el();
+        }
+        break;
+      }else{
+        delay(100);
+      }
+    }
+  }while (response == 'y' || response == 'Y');
+
+  Serial.print("Would you like to set current position as the zero position for azimuth and elevation? (y/n): ");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      char response = Serial.read();
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      if(response == 'y' || response == 'Y'){
+        yawStepper.haltAndSetPosition(0);
+        pitchStepper.haltAndSetPosition(0);
+        Serial.println("Current position set as zero position for azimuth and elevation.");
+      }
+      break;
+    }else{
+      delay(100);
+    }
+  }
+
+  Serial.println("Would you like to test azimuth and elevation calculations by inputting new payload coordinates? (y/n): ");
+  while(true){
+    resetCommandTimeout();
+    if(Serial.available() > 0){
+      response = Serial.read();
+      // THE FIX: Vacuum up the leftover 'Enter' key characters
+      delay(10); 
+      while(Serial.available() > 0) { 
+        Serial.read(); 
+      }
+      if(response == 'y' || response == 'Y'){
+        testing_az_el_calculations();
+      }
+
+      break;
+    }else{
+      delay(100);
+    }
+  }
 }
 
 void loop() {
