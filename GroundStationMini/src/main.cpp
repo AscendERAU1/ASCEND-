@@ -312,8 +312,10 @@ void setup()
 }
 
 void loop() {
-  double azimuth = calculate_azimuth(gs_longitude, pay_longitude, gs_latitude, pay_latitude);
-  double elevation = calculate_elevation(gs_longitude, pay_longitude, gs_latitude, pay_latitude, gs_height, pay_height);
+  //double azimuth = calculate_azimuth(gs_longitude, pay_longitude, gs_latitude, pay_latitude);
+  //double elevation = calculate_elevation(gs_longitude, pay_longitude, gs_latitude, pay_latitude, gs_height, pay_height);
+  double azimuth = 0;
+  double elevation = 0;
   //make sure the elevation is between the minimum and maximum pitch angles
   if(elevation < MIN_Pitch * PI / 180){
     elevation = MIN_Pitch * PI / 180;
@@ -326,4 +328,21 @@ void loop() {
   yawStepper.setTargetPosition(azimuth * 100000 / (2 * PI));
   pitchStepper.setTargetPosition(elevation * 100000 / (2 * PI));
   Serial.println("Set yaw to " + String(azimuth * 180 / PI) + " degrees and pitch to " + String(elevation * 180 / PI) + " degrees.");
+  delayWhileResettingCommandTimeout(20000);
+
+  azimuth = 360;
+  elevation = 85;
+  //make sure the elevation is between the minimum and maximum pitch angles
+  if(elevation < MIN_Pitch * PI / 180){
+    elevation = MIN_Pitch * PI / 180;
+  }
+  else if(elevation > MAX_Pitch * PI / 180){
+    elevation = MAX_Pitch * PI / 180;
+  }
+  //set the target position of the yaw and pitch steppers based on the calculated azimuth and elevation
+  resetCommandTimeout();
+  yawStepper.setTargetPosition(azimuth * 100000 / (2 * PI));
+  pitchStepper.setTargetPosition(elevation * 100000 / (2 * PI));
+  Serial.println("Set yaw to " + String(azimuth * 180 / PI) + " degrees and pitch to " + String(elevation * 180 / PI) + " degrees.");
+  delayWhileResettingCommandTimeout(20000);
 }
