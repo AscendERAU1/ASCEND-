@@ -22,8 +22,8 @@ int main() {
         return 1;
     }
 
-    cfsetospeed(&tty, B115200); // Set output baud rate
-    cfsetispeed(&tty, B115200); // Set input baud rate
+    cfsetospeed(&tty, B57600); // Set output baud rate
+    cfsetispeed(&tty, B57600); // Set input baud rate
 
     tty.c_cflag |= (CLOCAL | CREAD); // Enable receiver, ignore modem control lines
     tty.c_cflag &= ~PARENB;          // No parity

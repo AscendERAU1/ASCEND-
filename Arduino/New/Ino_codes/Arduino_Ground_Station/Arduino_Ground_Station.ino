@@ -345,9 +345,9 @@ void loop() {
     digitalWrite(LIGHT, HIGH);
     digitalWrite(LIGHT, LOW);
 
-    float coordinate1[2] = { 34.61455796253662, -112.45035709722825 };  // Given Coords
+    float coordinate1[2] = { 34.614716, -112.450387 };  // Given Coords
     float coordinate2[2] = { gps.latitude, gps.longitude };
-    float altitude1 = 100.0;  //given altitude
+    float altitude1 = 4500.0;  //given altitude
     float altitude2 = gps.altitude;
 
     // Run Function to calculate it
