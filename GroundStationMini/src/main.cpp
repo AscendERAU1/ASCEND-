@@ -26,7 +26,7 @@
 SoftwareSerial ticSerial(10, 11);
 #endif
 
-#define MAXSPEED 3000 // in steps per second
+#define MAXSPEED 1500 // in steps per second
 #define EARTH_RADIUS 6371000 // in meters
 #define MAX_Pitch 90 // in degrees
 #define MIN_Pitch 0 // in degrees
@@ -242,6 +242,10 @@ void setup()
   yawStepper.exitSafeStart();
   pitchStepper.exitSafeStart();
 
+  // Add these lines to enforce your max speed:
+  yawStepper.setMaxSpeed((uint32_t)MAXSPEED * 10000ULL);
+  pitchStepper.setMaxSpeed((uint32_t)MAXSPEED * 10000ULL);
+
   //Recenter both stepper motors to the initial position (pointing straight up)
   yawStepper.setTargetPosition(0);
   pitchStepper.setTargetPosition(0);
@@ -330,8 +334,8 @@ void loop() {
   Serial.println("Set yaw to " + String(azimuth * 180 / PI) + " degrees and pitch to " + String(elevation * 180 / PI) + " degrees.");
   delayWhileResettingCommandTimeout(20000);
 
-  azimuth = 360;
-  elevation = 85;
+  azimuth = 180 * PI / 180;
+  elevation = 85 * PI / 180;
   //make sure the elevation is between the minimum and maximum pitch angles
   if(elevation < MIN_Pitch * PI / 180){
     elevation = MIN_Pitch * PI / 180;
