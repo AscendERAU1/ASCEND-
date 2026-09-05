@@ -207,12 +207,16 @@ void setup() {
 
 
 void loop() {
+  // Control With joystick
+  // controlVelocityWithJoystick();
 
+  int stepsx = 200;
+  int stepsy = 20;
 
-  // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
-  // Includes:
-  // Gps parsing, Azimuth Range
-    controlVelocityWithJoystick();
+  // Control with steps
+    tic1.setTargetPosition(stepsx);
+    tic2.setTargetPosition(stepsy);
 
+  delay(10);
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }

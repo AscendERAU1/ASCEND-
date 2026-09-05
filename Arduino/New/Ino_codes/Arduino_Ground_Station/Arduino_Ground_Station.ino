@@ -211,7 +211,7 @@ void setMotorPosition(char motor, float angle) {
   if (motor == 'X') {
     tic1.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
   } else if (motor == 'Y') {
-    tic2.setTargetPosition(steps);  // Move tic1 (X motor) to the calculated position
+    tic2.setTargetPosition(steps);  // Move tic2 (Y motor) to the calculated position
   }
 }
 
@@ -388,6 +388,6 @@ void loop() {
     setMotorPosition('Y', -y_value);  // Move Y motor
 
   }
-  
+
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
