@@ -388,5 +388,6 @@ void loop() {
     setMotorPosition('Y', -y_value);  // Move Y motor
 
   }
+  
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }

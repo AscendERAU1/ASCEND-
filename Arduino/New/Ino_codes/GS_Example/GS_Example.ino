@@ -75,8 +75,6 @@ const int debugPin = 4;
 bool joylever = false;
 bool zerolever = false;
 static bool lastZeroLever = false;
-//debug defines
-float promptalt, promptlong, promptlat;
 
 
 
@@ -174,10 +172,9 @@ void controlVelocityWithJoystick() {
 
 
 
-bool debugpincheck(){
-  return digitalRead(debugPin) == LOW; // flipped = low
+bool joyleverCheck() {
+  return digitalRead(joyLeverPin) == LOW;  // flipped = LOW
 }
-
 
 void setup() {
   Serial.begin(115200);
@@ -204,6 +201,8 @@ void setup() {
   Serial.println(F("zero pin started"));
   pinMode(debugPin, INPUT_PULLUP);
   Serial.println(F("debug pin started"));
+  controlMode= MANUAL;
+  Serial.println("GOT");
 }
 
 
@@ -213,15 +212,7 @@ void loop() {
   // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
   // Includes:
   // Gps parsing, Azimuth Range
-  
-  if (joylever && controlMode== AUTO){
-    controlMode= MANUAL;
-  }
-
-
-  if (controlMode== MANUAL && joylever){
     controlVelocityWithJoystick();
-  }
 
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
