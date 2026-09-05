@@ -49,9 +49,6 @@
 // Library Defines
 #include <Arduino.h>
 
-//Azimuth Range defines
-#include <math.h>
-#include "AzimuthFull.h"
 
 //Servo Control Defines
 #include <Wire.h>
@@ -211,19 +208,6 @@ void setup() {
 
 
 void loop() {
-
-  // Scanning Serial
-  if (readSerialMessage()) {
-    Serial.println("Received:");
-    Serial.println(buffer);
-
-    //Parsing GPS Data
-    gps = extractGPS(buffer);
-
-    // Clear buffer for next message
-    bufIndex = 0;
-    buffer[0] = '\0';
-  }
 
 
   // ALL FUNCTIONS FOR WHEN GPS HAS BEEN CALLED
