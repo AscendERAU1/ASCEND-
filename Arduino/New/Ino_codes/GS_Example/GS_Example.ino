@@ -207,16 +207,19 @@ void setup() {
 
 
 void loop() {
-  // Control With joystick
+  // Control With joystick 
   // controlVelocityWithJoystick();
 
-  int stepsx = 200;
-  int stepsy = 20;
-
+// Change the angle to go to will run every time
+ int angley = 20;
+ int anglex = 20;
+ //Make angles into stepper "steps"
+  int32_t stepsx = round((anglex * stepsPerRevolution) / 360);
+  int32_t stepsy = round((angley * stepsPerRevolution) / 360);
   // Control with steps
     tic1.setTargetPosition(stepsx);
     tic2.setTargetPosition(stepsy);
-
+  // Delay
   delay(10);
   resetCommandTimeout();  // Reset command timeout to avoid Tic shutdown needs to go last
 }
